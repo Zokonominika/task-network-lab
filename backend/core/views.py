@@ -332,7 +332,7 @@ class TaskViewSet(viewsets.ModelViewSet):
             assignment.save()
             
             # Research Logging
-            session_id = request.data.get('session_id', 'unknown_session')
+            session_id = request.headers.get('X-Session-ID', 'unknown_session')
             log_event(user, session_id, 'task_completed', {'task_id': task.id})
 
             creator = task.created_by

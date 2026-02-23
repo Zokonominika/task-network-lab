@@ -11,3 +11,10 @@ anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count
 6b86b273ff34fce1,MC_001,unknown_session,comment_sent,4,4,14,8,Monday,2026-02-23T08:25:21.867257+00:00
 6b86b273ff34fce1,MC_001,unknown_session,comment_sent,4,2,9,8,Monday,2026-02-23T08:25:24.034869+00:00
 6b86b273ff34fce1,MC_001,unknown_session,comment_sent,4,1,4,8,Monday,2026-02-23T08:25:26.336743+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,task_created,5,,,11,Monday,2026-02-23T11:45:38.132657+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,1,4,11,Monday,2026-02-23T11:45:54.627040+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,3,12,11,Monday,2026-02-23T11:45:56.608398+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,8,35,11,Monday,2026-02-23T11:46:04.999607+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,2,10,11,Monday,2026-02-23T11:46:06.808953+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,1,7,11,Monday,2026-02-23T11:46:09.649587+00:00
+6b86b273ff34fce1,MC_001,sess-1771847122886-te1f94zg0,comment_sent,5,1,2,11,Monday,2026-02-23T11:46:10.178129+00:00
