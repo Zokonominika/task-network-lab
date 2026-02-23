@@ -1,7 +1,11 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User, Group
-from .models import Device, Task, TaskNode, Tenant, UserProfile, TaskAssignment, TaskDependency, Department, Notification, Comment, PresentationPeriod
+from .models import (
+    Device, Task, TaskNode, Tenant, UserProfile, TaskAssignment, 
+    TaskDependency, Department, Notification, Comment, PresentationPeriod,
+    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage
+)
 
 # Grupları gizle (İstemiyorum dedin)
 admin.site.unregister(Group)
@@ -76,3 +80,33 @@ admin.site.register(Comment)
 class PresentationPeriodAdmin(admin.ModelAdmin):
     list_display = ('name', 'start_date', 'end_date')
     filter_horizontal = ('tenants',)
+
+@admin.register(SurveyQuestion)
+class SurveyQuestionAdmin(admin.ModelAdmin):
+    list_display = ('order', 'text', 'is_active')
+    list_editable = ('order', 'is_active')
+    list_display_links = ('text',)
+    ordering = ('order',)
+
+@admin.register(SurveyResponse)
+class SurveyResponseAdmin(admin.ModelAdmin):
+    list_display = ('user', 'question', 'answer', 'submitted_at')
+    list_filter = ('question', 'presentation_period')
+    readonly_fields = ('submitted_at',)
+
+class PipelineStageInline(admin.TabularInline):
+    model = PipelineStage
+    fields = ('order', 'title', 'is_final_stage')
+    extra = 1
+
+@admin.register(PipelineTemplate)
+class PipelineTemplateAdmin(admin.ModelAdmin):
+    list_display = ('name', 'presentation_period')
+    inlines = [PipelineStageInline]
+
+@admin.register(PipelineStage)
+class PipelineStageAdmin(admin.ModelAdmin):
+    list_display = ('order', 'title', 'template', 'is_final_stage')
+    list_editable = ('order', 'is_final_stage')
+    list_display_links = ('title',)
+    list_filter = ('template',)

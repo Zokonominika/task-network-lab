@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Notification, Tenant, Device, Task, TaskNode, TaskDependency, TaskAssignment, TaskAttachment, UserProfile, Comment
+from .models import (
+    Notification, Tenant, Device, Task, TaskNode, TaskDependency, 
+    TaskAssignment, TaskAttachment, UserProfile, Comment, SurveyQuestion, SurveyResponse
+)
 from django.utils import timezone
 from datetime import timedelta
 
@@ -257,3 +260,8 @@ class CommentSerializer(serializers.ModelSerializer):
         if request and request.user:
             return obj.user == request.user
         return False
+
+class SurveyQuestionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SurveyQuestion
+        fields = ['id', 'text', 'order']

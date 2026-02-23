@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from django.utils import timezone
 
 # --- TENANT (ŞİRKET) ---
 class Tenant(models.Model):
@@ -89,6 +92,10 @@ class Task(models.Model):
     due_date = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     warning_sent = models.BooleanField(default=False)
+
+    # --- PIPELINE FIELDS ---
+    is_pipeline_task = models.BooleanField(default=False, verbose_name="Pipeline Görevi mi?")
+    pipeline_stage = models.ForeignKey('PipelineStage', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
 
     def __str__(self):
         return self.title
@@ -206,3 +213,117 @@ class PresentationPeriod(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.start_date} - {self.end_date})"
+
+# --- SURVEY (ANKET) ---
+class SurveyQuestion(models.Model):
+    text = models.CharField(max_length=500, verbose_name="Soru Metni")
+    order = models.IntegerField(default=0, verbose_name="Sıralama")
+    is_active = models.BooleanField(default=True, verbose_name="Aktif mi?")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Anket Sorusu"
+        verbose_name_plural = "Anket Soruları"
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.order}. {self.text[:50]}"
+
+class SurveyResponse(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='survey_responses', verbose_name="Kullanıcı")
+    question = models.ForeignKey(SurveyQuestion, on_delete=models.CASCADE, related_name='responses', verbose_name="Soru")
+    answer = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        verbose_name="Yanıt (1-5)"
+    )
+    session_id = models.CharField(max_length=255, verbose_name="Oturum ID")
+    presentation_period = models.ForeignKey(
+        PresentationPeriod, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='survey_responses',
+        verbose_name="Sunum Dönemi"
+    )
+    submitted_at = models.DateTimeField(auto_now_add=True, verbose_name="Gönderilme Tarihi")
+
+    class Meta:
+        verbose_name = "Anket Yanıtı"
+        verbose_name_plural = "Anket Yanıtları"
+
+    def __str__(self):
+        return f"{self.user.username} - {self.question.id} - {self.answer}"
+
+# --- PIPELINE (SÜREÇ) ---
+class PipelineTemplate(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Taslak Adı")
+    presentation_period = models.ForeignKey(PresentationPeriod, on_delete=models.CASCADE, related_name='pipeline', verbose_name="Sunum Dönemi")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Süreç Taslağı"
+        verbose_name_plural = "Süreç Taslakları"
+
+    def __str__(self):
+        return self.name
+
+class PipelineStage(models.Model):
+    template = models.ForeignKey(PipelineTemplate, on_delete=models.CASCADE, related_name='stages', verbose_name="Taslak")
+    title = models.CharField(max_length=200, verbose_name="Aşama Başlığı")
+    description = models.TextField(blank=True, verbose_name="Aşama Açıklaması")
+    order = models.IntegerField(verbose_name="Sıra")
+    is_final_stage = models.BooleanField(default=False, verbose_name="Final Aşaması mı?")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Süreç Aşaması"
+        verbose_name_plural = "Süreç Aşamaları"
+        ordering = ['order']
+
+    def __str__(self):
+        return f"{self.template.name} - {self.title}"
+
+# --- SIGNALS ---
+@receiver(post_save, sender=UserProfile)
+def pipeline_onboarding_signal(sender, instance, **kwargs):
+    """
+    Kullanıcı onaylandığında (is_active) ve tenant atandığında 
+    Pipeline görevlerini otomatik oluşturur.
+    """
+    if instance.user.is_active and instance.tenant:
+        # Zaten görevleri var mı?
+        if Task.objects.filter(assignments__user=instance.user, is_pipeline_task=True).exists():
+            return
+
+        # Bu tenant'ın dahil olduğu aktif bir dönem bul
+        period = instance.tenant.presentation_periods.filter(
+            start_date__lte=timezone.now().date(),
+            end_date__gte=timezone.now().date()
+        ).first()
+        
+        if not period:
+            period = instance.tenant.presentation_periods.order_by('-start_date').first()
+
+        if period:
+            template = period.pipeline.first()
+            if template:
+                # Görevleri oluşturacak bir "Admin" bul (Şirket içindeki en yetkili kişi)
+                creator = User.objects.filter(profile__tenant=instance.tenant, is_superuser=True).first()
+                if not creator:
+                    creator = User.objects.filter(profile__tenant=instance.tenant, profile__rank=10).first()
+                if not creator:
+                    creator = User.objects.filter(is_superuser=True).first()
+
+                for stage in template.stages.all():
+                    task = Task.objects.create(
+                        title=stage.title,
+                        description=stage.description,
+                        created_by=creator,
+                        tenant=instance.tenant,
+                        is_pipeline_task=True,
+                        pipeline_stage=stage
+                    )
+                    # TaskAssignment modelini kullanıyoruz
+                    # TaskAssignment.objects.create uses task and user
+                    from .models import TaskAssignment
+                    TaskAssignment.objects.create(task=task, user=instance.user)

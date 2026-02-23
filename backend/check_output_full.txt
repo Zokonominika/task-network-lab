@@ -1,0 +1,34 @@
+﻿python : SystemCheckErr
+or: System check identi
+fied some issues:
+At line:1 char:1
++ python manage.py chec
+k 2>&1 | Out-File -File
+Path check_output_full.
+tx ...
++ ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~
+    + CategoryInfo     
+         : NotSpecifi  
+  ed: (SystemCheckEr   
+ ro...ed some issue    
+s::String) [], Rem    o
+teException
+    + FullyQualifiedEr 
+   rorId : NativeComm  
+  andError
+ 
+
+ERRORS:
+<class 'core.admin.Surv
+eyQuestionAdmin'>: (adm
+in.E124) The value of '
+list_editable[0]' refer
+s to the first field in
+ 'list_display' ('order
+'), which cannot be use
+d unless 'list_display_
+links' is set.
+
+System check identified
+ 1 issue (0 silenced).

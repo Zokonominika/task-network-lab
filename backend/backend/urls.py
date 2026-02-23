@@ -2,7 +2,10 @@ from core import views
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from core.views import register_user, TaskViewSet, DeviceViewSet, TaskNodeViewSet, UserViewSet, TaskDependencyViewSet
+from core.views import (
+    register_user, TaskViewSet, DeviceViewSet, TaskNodeViewSet, 
+    UserViewSet, TaskDependencyViewSet, SurveyViewSet, PipelineViewSet
+)
 from django.conf import settings
 from django.conf.urls.static import static
 
@@ -15,6 +18,8 @@ router.register(r'users', UserViewSet, basename='user')
 router.register(r'dependencies', TaskDependencyViewSet)
 router.register(r'notifications', views.NotificationViewSet, basename='notification')
 router.register(r'comments', views.CommentViewSet, basename='comment')
+router.register(r'survey', views.SurveyViewSet, basename='survey')
+router.register(r'pipeline', views.PipelineViewSet, basename='pipeline')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

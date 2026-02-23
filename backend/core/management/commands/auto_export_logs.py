@@ -3,7 +3,7 @@ import hashlib
 import os
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from core.models import ActivityLog, PresentationPeriod, Tenant
+from core.models import ActivityLog, PresentationPeriod, Tenant, SurveyResponse
 from django.conf import settings
 
 class Command(BaseCommand):
@@ -22,10 +22,29 @@ class Command(BaseCommand):
         master_headers = [
             'anonymous_user_id', 'group_code', 'session_id', 'event_type', 
             'task_id', 'word_count', 'char_count', 'hour_of_day', 
-            'day_of_week', 'timestamp'
+            'day_of_week', 'timestamp', 'survey_completed_at'
         ]
 
         periods = PresentationPeriod.objects.all()
+
+        # 2. Pre-fetch survey completion times for this period to avoid N+1
+        # (user_id, session_id) -> submitted_at
+        survey_times = {}
+        if periods.exists():
+            first_start = periods.order_by('start_date').first().start_date
+            last_end = periods.order_by('-end_date').first().end_date
+            period_surveys = SurveyResponse.objects.filter(
+                submitted_at__date__gte=first_start,
+                submitted_at__date__lte=last_end
+            ).values('user_id', 'session_id', 'submitted_at')
+            
+            for s in period_surveys:
+                key = (s['user_id'], s['session_id'])
+                if key not in survey_times: # Keep the first one assuming batch submit
+                    survey_times[key] = s['submitted_at'].isoformat()
+
+        self.survey_times_cache = survey_times
+
         all_master_rows = []
 
         for period in periods:
@@ -51,19 +70,33 @@ class Command(BaseCommand):
                 tenants = Tenant.objects.all()
 
             for tenant in tenants:
-                tenant_rows = []
                 tenant_logs = period_logs.filter(user__profile__tenant=tenant)
+                if not tenant_logs.exists():
+                    continue
+
+                # Group subfolder
+                group_dir = os.path.join(period_dir, str(tenant.tenant_id))
+                if not os.path.exists(group_dir):
+                    os.makedirs(group_dir)
+
+                # Group by user
+                user_data_map = {} # anon_id -> list of rows
                 
                 for log in tenant_logs:
                     row = self.format_log_row(log, tenant.tenant_id)
-                    tenant_rows.append(row)
+                    anon_id = row[0] # anonymous_user_id is at index 0
+                    
+                    if anon_id not in user_data_map:
+                        user_data_map[anon_id] = []
+                    
+                    user_data_map[anon_id].append(row)
                     period_combined_rows.append(row)
                     all_master_rows.append(row)
                 
-                # Write Tenant CSV
-                if tenant_rows:
-                    tenant_csv_path = os.path.join(period_dir, f"{tenant.tenant_id}.csv")
-                    self.write_csv(tenant_csv_path, master_headers, tenant_rows)
+                # Write individual User CSVs
+                for anon_id, rows in user_data_map.items():
+                    user_csv_path = os.path.join(group_dir, f"user_{anon_id}.csv")
+                    self.write_csv(user_csv_path, master_headers, rows)
 
             # Write Period Combined CSV
             if period_combined_rows:
@@ -85,6 +118,10 @@ class Command(BaseCommand):
             anon_user_id = hash_obj.hexdigest()[0:16]
         
         meta = log.metadata if isinstance(log.metadata, dict) else {}
+        survey_done = ""
+        if log.user:
+            survey_done = self.survey_times_cache.get((log.user.id, log.session_id), "")
+
         return [
             anon_user_id,
             group_code,
@@ -95,7 +132,8 @@ class Command(BaseCommand):
             meta.get('char_count', ''),
             log.created_at.hour,
             log.created_at.strftime('%A'),
-            log.created_at.isoformat()
+            log.created_at.isoformat(),
+            survey_done
         ]
 
     def write_csv(self, path, headers, rows):

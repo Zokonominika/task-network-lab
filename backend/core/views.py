@@ -6,8 +6,16 @@ from rest_framework.authtoken.models import Token
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
-from .models import Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, TaskDependency, TaskAttachment, Notification, Comment
-from .serializers import TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, TaskDependencySerializer, TaskAttachmentSerializer, UserRegistrationSerializer, NotificationSerializer, CommentSerializer
+from .models import (
+    Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, 
+    TaskDependency, TaskAttachment, Notification, Comment, PresentationPeriod,
+    SurveyQuestion, SurveyResponse
+)
+from .serializers import (
+    TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, 
+    TaskDependencySerializer, TaskAttachmentSerializer, UserRegistrationSerializer, 
+    NotificationSerializer, CommentSerializer, SurveyQuestionSerializer
+)
 from .logging_utils import log_event
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
@@ -585,3 +593,97 @@ def export_activity_logs(request):
             writer_file.writerow(row)
 
     return response
+
+class SurveyViewSet(viewsets.ViewSet):
+    def get_permissions(self):
+        if self.action == 'questions':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    @action(detail=False, methods=['get'])
+    def questions(self, request):
+        questions = SurveyQuestion.objects.filter(is_active=True).order_by('order')
+        serializer = SurveyQuestionSerializer(questions, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def submit_responses(self, request):
+        responses_data = request.data.get('responses', [])
+        if not responses_data:
+            return Response({'error': 'Hiç yanıt gönderilmedi.'}, status=400)
+
+        session_id = request.headers.get('X-Session-ID', 'unknown_session')
+        
+        # Find current presentation period (latest one that covers today)
+        now = timezone.now().date()
+        period = PresentationPeriod.objects.filter(start_date__lte=now, end_date__gte=now).first()
+
+        survey_responses = []
+        for item in responses_data:
+            q_id = item.get('question_id')
+            answer = item.get('answer')
+            
+            try:
+                question = SurveyQuestion.objects.get(id=q_id)
+                survey_responses.append(SurveyResponse(
+                    user=request.user,
+                    question=question,
+                    answer=answer,
+                    session_id=session_id,
+                    presentation_period=period
+                ))
+            except SurveyQuestion.DoesNotExist:
+                continue
+
+        if survey_responses:
+            SurveyResponse.objects.bulk_create(survey_responses)
+            
+            # Log event
+            log_event(request.user, session_id, 'survey_completed', {
+                'question_count': len(survey_responses),
+                'timestamp': timezone.now().isoformat()
+            })
+            
+            return Response({'status': 'Anket başarıyla gönderildi.'})
+        
+        return Response({'error': 'Geçerli yanıt bulunamadı.'}, status=400)
+
+class PipelineViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    @action(detail=False, methods=['get'])
+    def my_stages(self, request):
+        user = request.user
+        # Get tasks assigned to this user that are pipeline tasks
+        pipeline_tasks = Task.objects.filter(
+            assignments__user=user, 
+            is_pipeline_task=True
+        ).select_related('pipeline_stage').order_by('pipeline_stage__order')
+
+        results = []
+        is_previous_completed = True # İlk aşama her zaman açıktır
+
+        for task in pipeline_tasks:
+            # Ödev atamasına bakarak tamamlanma durumunu al
+            assignment = task.assignments.filter(user=user).first()
+            is_completed = assignment.is_completed if assignment else False
+            
+            # Bir aşama, bir önceki aşama tamamlanmışsa "unlocked" olur
+            unlocked = is_previous_completed
+            
+            results.append({
+                'id': task.id,
+                'stage_id': task.pipeline_stage.id if task.pipeline_stage else None,
+                'title': task.title,
+                'description': task.description,
+                'status': task.status,
+                'is_completed': is_completed,
+                'unlocked': unlocked,
+                'order': task.pipeline_stage.order if task.pipeline_stage else 0,
+                'is_final_stage': task.pipeline_stage.is_final_stage if task.pipeline_stage else False
+            })
+            
+            # Bir sonraki aşama için bu aşamanın durumunu kaydet
+            is_previous_completed = is_completed
+
+        return Response(results)
