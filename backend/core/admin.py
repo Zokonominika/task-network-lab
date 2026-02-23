@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.models import User, Group
-from .models import Device, Task, TaskNode, Tenant, UserProfile, TaskAssignment, TaskDependency, Department, Notification, Comment
+from .models import Device, Task, TaskNode, Tenant, UserProfile, TaskAssignment, TaskDependency, Department, Notification, Comment, PresentationPeriod
 
 # Grupları gizle (İstemiyorum dedin)
 admin.site.unregister(Group)
@@ -40,24 +40,22 @@ class CustomUserAdmin(BaseUserAdmin):
             return ('username', 'first_name', 'last_name', 'date_joined', 'last_login')
         return () # Yeni oluşturuyorsak hepsi açık olsun
 
-    # Listede Tenant adını göstermek için yardımcı fonksiyon
+    @admin.display(description='Şirket')
     def get_tenant(self, instance):
         # 1. Profil var mı? 2. Şirket (Tenant) var mı?
         if hasattr(instance, 'profile') and instance.profile.tenant:
             return instance.profile.tenant.name
         return '🔴 Atanmamış (Bekliyor)' # Şirketi yoksa bunu yaz
-        
-    get_tenant.short_description = 'Şirket'
 
+    @admin.display(description='Rütbe')
     def get_rank(self, instance):
         return f"Lvl {instance.profile.rank}" if hasattr(instance, 'profile') else '-'
-    get_rank.short_description = 'Rütbe'
 
+    @admin.display(description='Departman')
     def get_department(self, instance):
         if hasattr(instance, 'profile') and instance.profile.department:
             return instance.profile.department.name
         return '-'
-    get_department.short_description = 'Departman'
 
 # User admini değiştir
 admin.site.unregister(User)
@@ -73,3 +71,8 @@ admin.site.register(TaskNode)
 admin.site.register(TaskAssignment)
 admin.site.register(Notification)
 admin.site.register(Comment)
+
+@admin.register(PresentationPeriod)
+class PresentationPeriodAdmin(admin.ModelAdmin):
+    list_display = ('name', 'start_date', 'end_date')
+    filter_horizontal = ('tenants',)

@@ -8,6 +8,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from .models import Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, TaskDependency, TaskAttachment, Notification, Comment
 from .serializers import TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, TaskDependencySerializer, TaskAttachmentSerializer, UserRegistrationSerializer, NotificationSerializer, CommentSerializer
+from .logging_utils import log_event
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
@@ -15,6 +16,12 @@ from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from datetime import timedelta
 import calendar
+import csv
+import hashlib
+import os
+from django.http import HttpResponse
+from rest_framework.permissions import IsAdminUser
+from .models import ActivityLog
 
 class UserViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = User.objects.all()
@@ -240,6 +247,11 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         task = serializer.save(created_by=self.request.user)
+        
+        # Research Logging
+        session_id = self.request.headers.get('X-Session-ID', 'unknown_session')
+        log_event(self.request.user, session_id, 'task_created', {'task_id': task.id})
+
         for assignment in task.assignments.all():
             user = assignment.user
             if user == self.request.user: continue
@@ -301,10 +313,10 @@ class TaskViewSet(viewsets.ModelViewSet):
                     title="Dosya Eklendi",
                     message=f"{request.user.username}, '{task.title}' görevine yeni bir dosya ekledi.",
                     notification_type="file",
-                    task=task
                 )
 
         return Response(TaskAttachmentSerializer(attachment).data, status=201)
+
 
     @action(detail=True, methods=['post'])
     def complete_my_part(self, request, pk=None):
@@ -319,6 +331,10 @@ class TaskViewSet(viewsets.ModelViewSet):
             assignment.completed_at = timezone.now()
             assignment.save()
             
+            # Research Logging
+            session_id = request.data.get('session_id', 'unknown_session')
+            log_event(user, session_id, 'task_completed', {'task_id': task.id})
+
             creator = task.created_by
             creator_settings = getattr(creator, 'profile', None) and creator.profile.notification_settings
 
@@ -466,6 +482,16 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment = serializer.save(user=self.request.user)
         task = comment.task
 
+        # Research Logging
+        session_id = self.request.headers.get('X-Session-ID', 'unknown_session')
+        word_count = len(comment.content.split())
+        char_count = len(comment.content)
+        log_event(self.request.user, session_id, 'comment_sent', {
+            'task_id': task.id,
+            'word_count': word_count,
+            'char_count': char_count
+        })
+
         recipients = set([a.user for a in task.assignments.all()])
         recipients.add(task.created_by)
         
@@ -482,3 +508,80 @@ class CommentViewSet(viewsets.ModelViewSet):
                     notification_type="comment",
                     task=task
                 )
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def export_activity_logs(request):
+    # 1. Prepare Response for User
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="activity_logs.csv"'
+
+    # 2. Prepare Local File Save
+    # Root of the project (backend/)
+    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    export_dir = os.path.join(backend_root, 'research_exports')
+    
+    if not os.path.exists(export_dir):
+        os.makedirs(export_dir)
+    
+    timestamp = timezone.now().strftime('%Y-%m-%d_%H-%M')
+    filename = f"export_{timestamp}.csv"
+    local_path = os.path.join(export_dir, filename)
+
+    # 3. Write CSV to both targets
+    with open(local_path, 'w', newline='', encoding='utf-8') as f:
+        # We'll use two writers: one for the response, one for the local file
+        writer_res = csv.writer(response)
+        writer_file = csv.writer(f)
+        
+        headers = [
+            'session_id', 'event_type', 'group_code', 'task_id', 
+            'word_count', 'char_count', 'hour_of_day', 'day_of_week', 
+            'created_at', 'anonymous_user_id'
+        ]
+        writer_res.writerow(headers)
+        writer_file.writerow(headers)
+
+        logs = ActivityLog.objects.all().order_by('-created_at')
+        for log in logs:
+            anon_user_id = ""
+            group_code = "N/A"
+            
+            if log.user:
+                # 1. Anonymous ID
+                hash_obj = hashlib.sha256(str(log.user.id).encode())
+                anon_user_id = hash_obj.hexdigest()[0:16]
+                
+                # 2. Group Code
+                try:
+                    if hasattr(log.user, 'profile') and log.user.profile.tenant:
+                        group_code = log.user.profile.tenant.tenant_id
+                except:
+                    pass
+            
+            # 3. Flatten Metadata
+            meta = log.metadata if isinstance(log.metadata, dict) else {}
+            task_id = meta.get('task_id', '')
+            word_count = meta.get('word_count', '')
+            char_count = meta.get('char_count', '')
+
+            # 4. Temporal Data
+            hour_of_day = log.created_at.hour
+            day_of_week = log.created_at.strftime('%A')
+            
+            row = [
+                log.session_id,
+                log.event_type,
+                group_code,
+                task_id,
+                word_count,
+                char_count,
+                hour_of_day,
+                day_of_week,
+                log.created_at.isoformat(),
+                anon_user_id
+            ]
+            writer_res.writerow(row)
+            writer_file.writerow(row)
+
+    return response

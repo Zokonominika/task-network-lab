@@ -19,7 +19,8 @@ router.register(r'comments', views.CommentViewSet, basename='comment')
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(router.urls)), # Tüm API'ler /api/ altında olacak
-    path('api/register/', register_user, name='register'),  
+    path('api/register/', register_user, name='register'),
+    path('api/research/export/', views.export_activity_logs, name='research-export'),
 ]
 
 if settings.DEBUG:

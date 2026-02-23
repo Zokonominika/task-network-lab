@@ -120,6 +120,19 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_CREDENTIALS = True # Kimlik kartına izin ver
 
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-session-id',
+]
+
 # 2. GÜVENLİK VE ÇEREZ (COOKIE) AYARLARI (Sorunu çözen yer burası)
 # Çerezlerin "Lax" modunda çalışmasını sağla (Localhost için en uyumlusu)
 SESSION_COOKIE_SAMESITE = 'Lax'

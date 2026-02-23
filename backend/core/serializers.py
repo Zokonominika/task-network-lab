@@ -58,79 +58,25 @@ class UserSerializer(serializers.ModelSerializer):
             return 'offline'
         return obj.profile.current_status
 
-    # --- GÜNCELLENEN UPDATE METODU ---
     def update(self, instance, validated_data):
-        # 1. Profil verisini (Telefon, Gizlilik vb.) ayıkla
         profile_data = validated_data.pop('profile', {})
         
-        # 2. Ana User verilerini (Email, İsim vb.) güncelle
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # 3. Profil verilerini güncelle
         if profile_data:
             profile = instance.profile
             for attr, value in profile_data.items():
-                # notification_settings veya privacy_settings dict olarak gelirse
-                # mevcut ayarların üzerine yazmak yerine merge (birleştirme) yapalım
-                if attr in ['notification_settings', 'privacy_settings'] and isinstance(value, dict):
-                    current_settings = getattr(profile, attr, {})
-                    # Eski ayarlarla yenileri birleştir (Yeni gelenler eskileri ezer)
+                attr_name = str(attr)
+                if attr_name in ['notification_settings', 'privacy_settings'] and isinstance(value, dict):
+                    current_settings = getattr(profile, attr_name, {})
                     updated_settings = {**current_settings, **value}
-                    setattr(profile, attr, updated_settings)
+                    setattr(profile, attr_name, updated_settings)
                 else:
-                    setattr(profile, attr, value)
-            
+                    setattr(profile, attr_name, value)
             profile.save()
 
-        return instance
-
-    class Meta:
-        model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'email','display_name', 'rank', 'department', 'avatar_id', 'title', 'status', 'profile']
-
-    def get_display_name(self, obj):
-        if hasattr(obj, 'profile'):
-            suffix = "Bey" if obj.profile.gender == 'male' else "Hanım" if obj.profile.gender == 'female' else ""
-            name = obj.first_name if obj.first_name else obj.username
-            return f"{name} {suffix}".strip()
-        return obj.username
-
-    def get_rank(self, obj):
-        return obj.profile.rank if hasattr(obj, 'profile') else 1
-
-    def get_department(self, obj):
-        if hasattr(obj, 'profile') and obj.profile.department:
-            return obj.profile.department.name
-        return "Genel"
-
-    def get_avatar_id(self, obj):
-        return obj.profile.avatar_id if hasattr(obj, 'profile') else 1
-        
-    def get_title(self, obj):
-        return obj.profile.title if hasattr(obj, 'profile') else ''
-    
-    def get_status(self, obj):
-        if not hasattr(obj, 'profile'):
-            return 'offline'
-        if obj.profile.current_status == 'offline':
-            return 'offline'
-        last_seen = obj.profile.last_activity
-        if not last_seen or (timezone.now() - last_seen) > timedelta(seconds=30):
-            return 'offline'
-        return obj.profile.current_status
-
-    def update(self, instance, validated_data):
-        profile_data = validated_data.pop('profile', {})
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        if profile_data:
-            profile = instance.profile
-            for attr, value in profile_data.items():
-                setattr(profile, attr, value)
-            profile.save()
         return instance
 
 # --- 2. ALT BİLEŞEN SERIALIZERS ---

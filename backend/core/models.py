@@ -170,3 +170,39 @@ class Comment(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.task.title}"
+
+class ActivityLog(models.Model):
+    EVENT_CHOICES = [
+        ('session_start', 'Oturum Başladı'),
+        ('session_end', 'Oturum Bitti'),
+        ('task_created', 'Görev Oluşturuldu'),
+        ('task_moved', 'Görev Taşındı'),
+        ('task_completed', 'Görev Tamamlandı'),
+        ('comment_sent', 'Yorum Gönderildi'),
+        ('file_uploaded', 'Dosya Yüklendi'),
+        ('notification_opened', 'Bildirim Açıldı'),
+        ('card_connected', 'Kart Bağlandı'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='activity_logs')
+    session_id = models.CharField(max_length=255)
+    event_type = models.CharField(max_length=50, choices=EVENT_CHOICES)
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        user_str = self.user.username if self.user else "Anonymous"
+        return f"{user_str} - {self.event_type} ({self.created_at})"
+
+class PresentationPeriod(models.Model):
+    name = models.CharField(max_length=100, verbose_name="Dönem Adı")
+    start_date = models.DateField(verbose_name="Başlangıç Tarihi")
+    end_date = models.DateField(verbose_name="Bitiş Tarihi")
+    tenants = models.ManyToManyField(Tenant, blank=True, verbose_name="Gruplar", related_name='presentation_periods')
+
+    class Meta:
+        verbose_name = "Sunum Dönemi"
+        verbose_name_plural = "Sunum Dönemleri"
+
+    def __str__(self):
+        return f"{self.name} ({self.start_date} - {self.end_date})"
