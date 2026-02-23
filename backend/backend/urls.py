@@ -26,6 +26,7 @@ urlpatterns = [
     path('api/', include(router.urls)), # Tüm API'ler /api/ altında olacak
     path('api/register/', register_user, name='register'),
     path('api/research/export/', views.export_activity_logs, name='research-export'),
+    path('api/users/deactivate_me/', UserViewSet.as_view({'post': 'deactivate_me'}), name='deactivate-me'),
 ]
 
 if settings.DEBUG:

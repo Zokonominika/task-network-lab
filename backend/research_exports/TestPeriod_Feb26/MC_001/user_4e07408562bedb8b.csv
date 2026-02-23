@@ -1,0 +1,5 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+4e07408562bedb8b,MC_001,sess-1771867907718-h35x5cc32,stage_completed,9,,,17,Monday,2026-02-23T17:32:04.639927+00:00,
+4e07408562bedb8b,MC_001,sess-1771867907718-h35x5cc32,stage_completed,10,,,17,Monday,2026-02-23T17:32:12.739298+00:00,
+4e07408562bedb8b,MC_001,sess-1771867907718-h35x5cc32,stage_completed,11,,,17,Monday,2026-02-23T17:32:14.486149+00:00,
+4e07408562bedb8b,MC_001,sess-1771867907718-h35x5cc32,final_stage_reached,,,,17,Monday,2026-02-23T17:32:14.497450+00:00,

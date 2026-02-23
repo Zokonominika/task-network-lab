@@ -1,5 +1,6 @@
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework import viewsets, status
+from django.core.management import call_command
 from rest_framework.decorators import action, api_view, permission_classes, authentication_classes
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
@@ -165,6 +166,29 @@ class UserViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Şirket bulunamadı.'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+            
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def deactivate_me(self, request):
+        user = request.user
+        session_id = request.headers.get('X-Session-ID', 'unknown')
+        
+        # 1. Log event
+        log_event(user, session_id, 'experiment_completed', {
+            'username': user.username,
+            'deactivated_at': timezone.now().isoformat()
+        })
+        
+        # 2. Set inactive
+        user.is_active = False
+        user.save()
+        
+        # 3. Trigger final export
+        try:
+            call_command('auto_export_logs')
+        except Exception as e:
+            print(f"Final export error: {e}")
+            
+        return Response({'status': 'success', 'message': 'Hesabınız pasif hale getirildi ve verileriniz dışa aktarıldı.'})
         
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskNodeViewSet(viewsets.ModelViewSet):
