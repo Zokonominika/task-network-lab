@@ -7,7 +7,24 @@ from .models import (
     SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage
 )
 
-# Grupları gizle (İstemiyorum dedin)
+def approve_users(modeladmin, request, queryset):
+    for profile in queryset:
+        user = profile.user
+        user.is_active = True
+        user.save()
+        if not profile.tenant:
+            profile.tenant = Tenant.objects.first()
+        profile.save()
+approve_users.short_description = "Seçili kullanıcıları onayla ve pipeline oluştur"
+
+# ← ADD THIS HERE
+class UserProfileAdmin(admin.ModelAdmin):
+    actions = [approve_users]
+    list_display = ['user', 'tenant', 'title']
+
+admin.site.register(UserProfile, UserProfileAdmin)
+
+# Grupları gizle
 admin.site.unregister(Group)
 
 class UserProfileInline(admin.StackedInline):
@@ -110,3 +127,5 @@ class PipelineStageAdmin(admin.ModelAdmin):
     list_editable = ('order', 'is_final_stage')
     list_display_links = ('title',)
     list_filter = ('template',)
+
+

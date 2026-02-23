@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from .models import (
     Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, 
     TaskDependency, TaskAttachment, Notification, Comment, PresentationPeriod,
-    SurveyQuestion, SurveyResponse
+    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage
 )
 from .serializers import (
     TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, 
@@ -31,7 +31,7 @@ from django.http import HttpResponse
 from rest_framework.permissions import IsAdminUser
 from .models import ActivityLog
 
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
+class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     def get_queryset(self):
@@ -136,6 +136,35 @@ class UserViewSet(viewsets.ReadOnlyModelViewSet):
                 serializer.save()
                 return Response(serializer.data)
             return Response(serializer.errors, status=400)
+
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def approve(self, request, pk=None):
+        user = self.get_object()
+        tenant_id = request.data.get('tenant_id')
+        
+        if not tenant_id:
+            return Response({'error': 'Şirket seçimi zorunludur.'}, status=400)
+            
+        try:
+            tenant = Tenant.objects.get(id=tenant_id)
+            profile = user.profile
+            # Aktifleştirme ve Şirket Ataması
+            # Not: user.is_active'i profile.save()'den önce yapıyoruz ki 
+            # UserProfile post_save sinyali (models.py) tetiklendiğinde is_active True olsun.
+            user.is_active = True
+            user.save()
+
+            profile = user.profile
+            profile.tenant = tenant
+            profile.save() # Bu işlem models.py'deki pipeline_onboarding_signal'ı tetikler.
+            
+            log_event(request.user, request.headers.get('X-Session-ID', 'system'), 'user_approved', {'approved_user_id': user.id})
+            
+            return Response({'status': 'approved', 'message': f'{user.username} onaylandı ve şirkete atandı.'})
+        except Tenant.DoesNotExist:
+            return Response({'error': 'Şirket bulunamadı.'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
         
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskNodeViewSet(viewsets.ModelViewSet):
@@ -145,6 +174,19 @@ class TaskNodeViewSet(viewsets.ModelViewSet):
 class TaskDependencyViewSet(viewsets.ModelViewSet):
     queryset = TaskDependency.objects.all()
     serializer_class = TaskDependencySerializer
+
+    def perform_create(self, serializer):
+        source_task = serializer.validated_data.get('source_task')
+        target_task = serializer.validated_data.get('target_task')
+
+        # Tarih kısıtlaması (Pipeline olmayanlar için)
+        if not (source_task.is_pipeline_task or target_task.is_pipeline_task):
+            if source_task.due_date and target_task.due_date:
+                if source_task.due_date > target_task.due_date:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError("Kaynak görevin süresi, hedef görevden sonra bitemez!")
+
+        serializer.save()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class TaskViewSet(viewsets.ModelViewSet):
@@ -654,25 +696,23 @@ class PipelineViewSet(viewsets.ViewSet):
     @action(detail=False, methods=['get'])
     def my_stages(self, request):
         user = request.user
-        # Get tasks assigned to this user that are pipeline tasks
         pipeline_tasks = Task.objects.filter(
             assignments__user=user, 
             is_pipeline_task=True
         ).select_related('pipeline_stage').order_by('pipeline_stage__order')
 
         results = []
-        is_previous_completed = True # İlk aşama her zaman açıktır
+        is_previous_completed = True 
 
         for task in pipeline_tasks:
-            # Ödev atamasına bakarak tamamlanma durumunu al
             assignment = task.assignments.filter(user=user).first()
             is_completed = assignment.is_completed if assignment else False
             
-            # Bir aşama, bir önceki aşama tamamlanmışsa "unlocked" olur
             unlocked = is_previous_completed
             
             results.append({
                 'id': task.id,
+                'task_id': task.id, # Backward compatibility
                 'stage_id': task.pipeline_stage.id if task.pipeline_stage else None,
                 'title': task.title,
                 'description': task.description,
@@ -683,7 +723,46 @@ class PipelineViewSet(viewsets.ViewSet):
                 'is_final_stage': task.pipeline_stage.is_final_stage if task.pipeline_stage else False
             })
             
-            # Bir sonraki aşama için bu aşamanın durumunu kaydet
             is_previous_completed = is_completed
 
         return Response(results)
+
+    @action(detail=False, methods=['post'])
+    def complete_stage(self, request):
+        task_id = request.data.get('task_id')
+        if not task_id:
+            return Response({'error': 'task_id zorunludur.'}, status=400)
+            
+        try:
+            task = Task.objects.get(id=task_id, is_pipeline_task=True)
+            assignment = task.assignments.filter(user=request.user).first()
+            
+            if not assignment:
+                return Response({'error': 'Bu aşama sana atanmamış.'}, status=403)
+                
+            if assignment.is_completed:
+                return self.my_stages(request)
+                
+            assignment.is_completed = True
+            assignment.completed_at = timezone.now()
+            assignment.save()
+            
+            # Log event
+            session_id = request.headers.get('X-Session-ID', 'system')
+            log_event(request.user, session_id, 'stage_completed', {
+                'stage_title': task.title,
+                'stage_order': task.pipeline_stage.order if task.pipeline_stage else 0,
+                'task_id': task.id
+            })
+            
+            if task.pipeline_stage and task.pipeline_stage.is_final_stage:
+                log_event(request.user, session_id, 'final_stage_reached', {
+                    'template_name': task.pipeline_stage.template.name
+                })
+                
+            return self.my_stages(request)
+            
+        except Task.DoesNotExist:
+            return Response({'error': 'Aşama bulunamadı.'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
