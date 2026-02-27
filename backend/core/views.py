@@ -24,6 +24,7 @@ from django.utils import timezone
 from django.db.models import Count, Q
 from django.db.models.functions import TruncDate
 from datetime import timedelta
+from django.db import transaction
 import calendar
 import csv
 import hashlib
@@ -77,6 +78,13 @@ class UserViewSet(viewsets.ModelViewSet):
             profile = request.user.profile
             profile.current_status = status
             profile.save()
+
+            if status == 'offline':
+                try:
+                    export_user_csv(request.user)
+                except Exception as e:
+                    print(f"Logout export error: {e}")
+
             return Response({'status': 'Durum güncellendi', 'current': status})
         except Exception as e:
             return Response({'error': str(e)}, status=500)
@@ -168,15 +176,12 @@ class UserViewSet(viewsets.ModelViewSet):
         try:
             tenant = Tenant.objects.get(id=tenant_id)
             profile = user.profile
-            # Aktifleştirme ve Şirket Ataması
-            # Not: user.is_active'i profile.save()'den önce yapıyoruz ki 
-            # UserProfile post_save sinyali (models.py) tetiklendiğinde is_active True olsun.
             user.is_active = True
             user.save()
 
             profile = user.profile
             profile.tenant = tenant
-            profile.save() # Bu işlem models.py'deki pipeline_onboarding_signal'ı tetikler.
+            profile.save()
             
             log_event(request.user, request.headers.get('X-Session-ID', 'system'), 'user_approved', {'approved_user_id': user.id})
             
@@ -190,18 +195,33 @@ class UserViewSet(viewsets.ModelViewSet):
     def deactivate_me(self, request):
         user = request.user
         session_id = request.headers.get('X-Session-ID', 'unknown')
-        
-        # 1. Log event
-        log_event(user, session_id, 'experiment_completed', {
-            'username': user.username,
-            'deactivated_at': timezone.now().isoformat()
-        })
-        
-        # 2. Set inactive
+
+        with transaction.atomic():
+            already_logged = ActivityLog.objects.select_for_update().filter(
+                user=user,
+                event_type='experiment_completed'
+            ).exists()
+
+            if already_logged:
+                return Response({'status': 'already_completed'})
+
+            # 1. Log event INSIDE the transaction
+            log_event(user, session_id, 'experiment_completed', {
+                'username': user.username,
+                'deactivated_at': timezone.now().isoformat()
+            })
+
+        # 2. Export user CSV
+        try:
+            export_user_csv(user)
+        except Exception as e:
+            print(f"Deactivation export error: {e}")
+
+        # 3. Set inactive
         user.is_active = False
         user.save()
         
-        # 3. Trigger final export
+        # 4. Trigger final export
         try:
             call_command('auto_export_logs')
         except Exception as e:
@@ -222,7 +242,6 @@ class TaskDependencyViewSet(viewsets.ModelViewSet):
         source_task = serializer.validated_data.get('source_task')
         target_task = serializer.validated_data.get('target_task')
 
-        # Tarih kısıtlaması (Pipeline olmayanlar için)
         if not (source_task.is_pipeline_task or target_task.is_pipeline_task):
             if source_task.due_date and target_task.due_date:
                 if source_task.due_date > target_task.due_date:
@@ -246,34 +265,27 @@ class TaskViewSet(viewsets.ModelViewSet):
             Q(created_by=user) | Q(assignments__user=user)
         ).distinct()
 
-    # --- Konum Kaydetme Fonksiyonu ---
     @action(detail=True, methods=['post'])
     def update_position(self, request, pk=None):
         try:
             task = self.get_object()
             
-            # Gelen veriyi güvenli hale getir (String gelirse sayıya çevir)
             try:
                 raw_x = request.data.get('x', 0)
                 raw_y = request.data.get('y', 0)
-                
-                # "Hub'a Göre Konum" ondalıklı olabilir, yuvarlıyoruz
                 x = float(raw_x) 
                 y = float(raw_y)
             except (ValueError, TypeError):
                 return Response({'error': 'Koordinatlar sayı olmalıdır!'}, status=400)
 
-            # Debug Logu: Backend'in ne anladığını görelim
             print(f"🛰️ HUB RELATIVE UPDATE: Task {task.id} -> X:{x} / Y:{y}")
 
-            # Node varsa getir, yoksa OLUŞTUR
             node, created = TaskNode.objects.get_or_create(
                 task=task,
                 user=request.user,
                 defaults={'position_x': x, 'position_y': y}
             )
 
-            # Her durumda güncelle (Created olsa bile, belki default 0,0 geldi ama biz x,y istiyoruz)
             node.position_x = x
             node.position_y = y
             node.save()
@@ -289,7 +301,6 @@ class TaskViewSet(viewsets.ModelViewSet):
         try:
             now = timezone.now()
             
-            # 1. SENARYO: 1 SAAT KALA
             warning_time = now + timedelta(hours=1)
             tasks_near_deadline = Task.objects.filter(
                 status='active', 
@@ -313,7 +324,6 @@ class TaskViewSet(viewsets.ModelViewSet):
                 task.warning_sent = True
                 task.save()
 
-            # 2. SENARYO: SÜRESİ DOLANLAR
             expired_tasks = Task.objects.filter(status='active', due_date__lte=now)
 
             for task in expired_tasks:
@@ -341,7 +351,6 @@ class TaskViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         task = serializer.save(created_by=self.request.user)
         
-        # Research Logging
         session_id = self.request.headers.get('X-Session-ID', 'unknown_session')
         log_event(self.request.user, session_id, 'task_created', {'task_id': task.id})
 
@@ -410,7 +419,6 @@ class TaskViewSet(viewsets.ModelViewSet):
 
         return Response(TaskAttachmentSerializer(attachment).data, status=201)
 
-
     @action(detail=True, methods=['post'])
     def complete_my_part(self, request, pk=None):
         task = self.get_object()
@@ -424,7 +432,6 @@ class TaskViewSet(viewsets.ModelViewSet):
             assignment.completed_at = timezone.now()
             assignment.save()
             
-            # Research Logging
             session_id = request.headers.get('X-Session-ID', 'unknown_session')
             log_event(user, session_id, 'task_completed', {'task_id': task.id})
 
@@ -575,7 +582,6 @@ class CommentViewSet(viewsets.ModelViewSet):
         comment = serializer.save(user=self.request.user)
         task = comment.task
 
-        # Research Logging
         session_id = self.request.headers.get('X-Session-ID', 'unknown_session')
         word_count = len(comment.content.split())
         char_count = len(comment.content)
@@ -605,12 +611,9 @@ class CommentViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def export_activity_logs(request):
-    # 1. Prepare Response for User
     response = HttpResponse(content_type='text/csv')
     response['Content-Disposition'] = 'attachment; filename="activity_logs.csv"'
 
-    # 2. Prepare Local File Save
-    # Root of the project (backend/)
     backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     export_dir = os.path.join(backend_root, 'research_exports')
     
@@ -621,9 +624,7 @@ def export_activity_logs(request):
     filename = f"export_{timestamp}.csv"
     local_path = os.path.join(export_dir, filename)
 
-    # 3. Write CSV to both targets
     with open(local_path, 'w', newline='', encoding='utf-8') as f:
-        # We'll use two writers: one for the response, one for the local file
         writer_res = csv.writer(response)
         writer_file = csv.writer(f)
         
@@ -642,28 +643,24 @@ def export_activity_logs(request):
             group_code = "N/A"
             
             if log.user:
-                # 1. Anonymous ID
                 hash_obj = hashlib.sha256(str(log.user.id).encode())
                 anon_user_id = hash_obj.hexdigest()[0:16]
                 
-                # 2. Group Code
                 try:
                     if hasattr(log.user, 'profile') and log.user.profile.tenant:
                         group_code = log.user.profile.tenant.tenant_id
                 except:
                     pass
             
-            # 3. Flatten Metadata
             meta = log.metadata if isinstance(log.metadata, dict) else {}
             task_id = meta.get('task_id', '')
             word_count = meta.get('word_count', '')
             char_count = meta.get('char_count', '')
             
-            # 3b. Survey Specifics for 'survey_completed' events
-            suspicious_count = meta.get('suspicious_count', '')
+            raw_suspicious = meta.get('is_suspicious', '')
+            suspicious_count = 1 if raw_suspicious is True else (0 if raw_suspicious is False else '')
             avg_response = meta.get('avg_response_ms', '')
 
-            # 4. Temporal Data
             hour_of_day = log.created_at.hour
             day_of_week = log.created_at.strftime('%A')
             
@@ -686,6 +683,68 @@ def export_activity_logs(request):
 
     return response
 
+def export_user_csv(user):
+    hash_obj = hashlib.sha256(str(user.id).encode())
+    anonymous_id = hash_obj.hexdigest()[0:16]
+
+    group_code = "N/A"
+    try:
+        if hasattr(user, 'profile') and user.profile.tenant:
+            group_code = user.profile.tenant.tenant_id
+    except:
+        pass
+
+    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    export_dir = os.path.join(backend_root, 'research_exports', str(group_code))
+    if not os.path.exists(export_dir):
+        os.makedirs(export_dir)
+
+    file_path = os.path.join(export_dir, f"{anonymous_id}.csv")
+
+    logs = ActivityLog.objects.filter(user=user).order_by('created_at')
+    
+    latest_survey = ActivityLog.objects.filter(
+        user=user, 
+        event_type='survey_completed'
+    ).order_by('-created_at').first()
+    survey_completed_at = latest_survey.created_at.isoformat() if latest_survey else ""
+
+    with open(file_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        headers = [
+            'anonymous_user_id', 'group_code', 'session_id', 'event_type', 
+            'task_id', 'word_count', 'char_count', 'hour_of_day', 
+            'day_of_week', 'timestamp', 'survey_completed_at', 'is_suspicious'
+        ]
+        writer.writerow(headers)
+
+        for log in logs:
+            meta = log.metadata if isinstance(log.metadata, dict) else {}
+            
+            is_suspicious = ""
+            if log.event_type == 'survey_completed':
+                raw_suspicious = meta.get('is_suspicious')
+                if raw_suspicious is True:
+                    is_suspicious = 1
+                elif raw_suspicious is False:
+                    is_suspicious = 0
+            
+            row = [
+                anonymous_id,
+                group_code,
+                log.session_id,
+                log.event_type,
+                meta.get('task_id', ''),
+                meta.get('word_count', ''),
+                meta.get('char_count', ''),
+                log.created_at.hour,
+                log.created_at.strftime('%A'),
+                log.created_at.isoformat(),
+                survey_completed_at,
+                is_suspicious
+            ]
+            writer.writerow(row)
+
 class SurveyViewSet(viewsets.ViewSet):
     def get_permissions(self):
         if self.action == 'questions':
@@ -706,7 +765,6 @@ class SurveyViewSet(viewsets.ViewSet):
 
         session_id = request.headers.get('X-Session-ID', 'unknown_session')
         
-        # Find current presentation period (latest one that covers today)
         now = timezone.now().date()
         period = PresentationPeriod.objects.filter(start_date__lte=now, end_date__gte=now).first()
 
@@ -722,7 +780,6 @@ class SurveyViewSet(viewsets.ViewSet):
             try:
                 question = SurveyQuestion.objects.get(id=q_id)
                 
-                # Free-rider detection: Threshold = len(text) * 50ms
                 threshold = len(question.text) * 50
                 is_suspicious = time_ms < threshold
                 if is_suspicious:
@@ -745,7 +802,6 @@ class SurveyViewSet(viewsets.ViewSet):
         if survey_responses:
             SurveyResponse.objects.bulk_create(survey_responses)
             
-            # Log event with suspicious_count
             log_event(request.user, session_id, 'survey_completed', {
                 'question_count': len(survey_responses),
                 'is_suspicious': suspicious_count > 0,
@@ -779,7 +835,7 @@ class PipelineViewSet(viewsets.ViewSet):
             
             results.append({
                 'id': task.id,
-                'task_id': task.id, # Backward compatibility
+                'task_id': task.id,
                 'stage_id': task.pipeline_stage.id if task.pipeline_stage else None,
                 'title': task.title,
                 'description': task.description,
@@ -814,7 +870,6 @@ class PipelineViewSet(viewsets.ViewSet):
             assignment.completed_at = timezone.now()
             assignment.save()
             
-            # Log event
             session_id = request.headers.get('X-Session-ID', 'system')
             log_event(request.user, session_id, 'stage_completed', {
                 'stage_title': task.title,

@@ -1,0 +1,10 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,stage_completed,61,,,12,Friday,2026-02-27T12:34:13.210553+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,stage_completed,62,,,12,Friday,2026-02-27T12:34:13.942176+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,stage_completed,63,,,12,Friday,2026-02-27T12:34:14.712742+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,stage_completed,64,,,12,Friday,2026-02-27T12:34:15.767836+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,stage_completed,65,,,12,Friday,2026-02-27T12:34:16.764625+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,final_stage_reached,,,,12,Friday,2026-02-27T12:34:16.764625+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,sess-1772195647933-lles2fhat,survey_completed,,,,12,Friday,2026-02-27T12:34:33.107672+00:00,2026-02-27T12:34:33.097353+00:00
+3fdba35f04dc8c46,MC_001,unknown,experiment_completed,,,,12,Friday,2026-02-27T12:34:38.213894+00:00,
+3fdba35f04dc8c46,MC_001,unknown,experiment_completed,,,,12,Friday,2026-02-27T12:34:38.213894+00:00,

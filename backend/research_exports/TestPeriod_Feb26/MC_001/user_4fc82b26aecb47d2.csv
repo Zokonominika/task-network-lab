@@ -1,0 +1,12 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,task_created,55,,,12,Friday,2026-02-27T12:04:28.455149+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,comment_sent,55,3,20,12,Friday,2026-02-27T12:04:38.265555+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,comment_sent,55,7,56,12,Friday,2026-02-27T12:04:49.873519+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,comment_sent,55,1,4,12,Friday,2026-02-27T12:04:53.585865+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,comment_sent,55,6,44,12,Friday,2026-02-27T12:05:11.026494+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,stage_completed,50,,,12,Friday,2026-02-27T12:05:27.891165+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,stage_completed,51,,,12,Friday,2026-02-27T12:05:30.261635+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,stage_completed,52,,,12,Friday,2026-02-27T12:05:32.034949+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,stage_completed,53,,,12,Friday,2026-02-27T12:05:33.346654+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,stage_completed,54,,,12,Friday,2026-02-27T12:05:36.499925+00:00,
+4fc82b26aecb47d2,MC_001,sess-1772193732552-d0ciozm5h,final_stage_reached,,,,12,Friday,2026-02-27T12:05:36.514810+00:00,
