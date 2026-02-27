@@ -1,0 +1,10 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,stage_completed,25,,,6,Friday,2026-02-27T06:28:09.403860+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,stage_completed,26,,,6,Friday,2026-02-27T06:28:10.252269+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,stage_completed,27,,,6,Friday,2026-02-27T06:28:11.206426+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,stage_completed,28,,,6,Friday,2026-02-27T06:28:12.402635+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,stage_completed,29,,,6,Friday,2026-02-27T06:28:14.419998+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,final_stage_reached,,,,6,Friday,2026-02-27T06:28:14.442267+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,sess-1772173661172-vgkxl3ot8,survey_completed,,,,6,Friday,2026-02-27T06:28:21.053977+00:00,2026-02-27T06:28:21.042263+00:00
+e7f6c011776e8db7,MC_001,unknown,experiment_completed,,,,6,Friday,2026-02-27T06:28:26.114268+00:00,
+e7f6c011776e8db7,MC_001,unknown,experiment_completed,,,,6,Friday,2026-02-27T06:28:26.120849+00:00,

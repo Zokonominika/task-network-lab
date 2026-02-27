@@ -236,6 +236,8 @@ class SurveyResponse(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(5)],
         verbose_name="Yanıt (1-5)"
     )
+    time_on_question_ms = models.IntegerField(null=True, blank=True, verbose_name="Soru Başında Geçen Süre (ms)")
+    is_suspicious = models.BooleanField(default=False, verbose_name="Şüpheli mi?")
     session_id = models.CharField(max_length=255, verbose_name="Oturum ID")
     presentation_period = models.ForeignKey(
         PresentationPeriod, 

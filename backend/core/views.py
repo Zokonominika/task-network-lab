@@ -31,6 +31,25 @@ import os
 from django.http import HttpResponse
 from rest_framework.permissions import IsAdminUser
 from .models import ActivityLog
+from datetime import datetime, date, time
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_presentation(request):
+    try:
+        profile = request.user.profile
+        period = PresentationPeriod.objects.filter(
+            tenants=profile.tenant,
+            end_date__gte=date.today()
+        ).order_by('end_date').first()
+        
+        if not period:
+            return Response({'error': 'Aktif sunum yok'}, status=404)
+            
+        end_datetime = datetime.combine(period.end_date, time(0, 0, 0))
+        return Response({'end_date': end_datetime.isoformat(), 'name': period.name})
+    except:
+        return Response({'error': 'Hata'}, status=400)
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -611,7 +630,8 @@ def export_activity_logs(request):
         headers = [
             'session_id', 'event_type', 'group_code', 'task_id', 
             'word_count', 'char_count', 'hour_of_day', 'day_of_week', 
-            'created_at', 'anonymous_user_id'
+            'created_at', 'anonymous_user_id', 
+            'survey_suspicious_count', 'survey_avg_response_ms'
         ]
         writer_res.writerow(headers)
         writer_file.writerow(headers)
@@ -638,6 +658,10 @@ def export_activity_logs(request):
             task_id = meta.get('task_id', '')
             word_count = meta.get('word_count', '')
             char_count = meta.get('char_count', '')
+            
+            # 3b. Survey Specifics for 'survey_completed' events
+            suspicious_count = meta.get('suspicious_count', '')
+            avg_response = meta.get('avg_response_ms', '')
 
             # 4. Temporal Data
             hour_of_day = log.created_at.hour
@@ -653,7 +677,9 @@ def export_activity_logs(request):
                 hour_of_day,
                 day_of_week,
                 log.created_at.isoformat(),
-                anon_user_id
+                anon_user_id,
+                suspicious_count,
+                avg_response
             ]
             writer_res.writerow(row)
             writer_file.writerow(row)
@@ -685,16 +711,31 @@ class SurveyViewSet(viewsets.ViewSet):
         period = PresentationPeriod.objects.filter(start_date__lte=now, end_date__gte=now).first()
 
         survey_responses = []
+        suspicious_count = 0
+        total_time_ms = 0
+        
         for item in responses_data:
             q_id = item.get('question_id')
             answer = item.get('answer')
+            time_ms = item.get('time_on_question_ms', 0)
             
             try:
                 question = SurveyQuestion.objects.get(id=q_id)
+                
+                # Free-rider detection: Threshold = len(text) * 50ms
+                threshold = len(question.text) * 50
+                is_suspicious = time_ms < threshold
+                if is_suspicious:
+                    suspicious_count += 1
+                
+                total_time_ms += time_ms
+
                 survey_responses.append(SurveyResponse(
                     user=request.user,
                     question=question,
                     answer=answer,
+                    time_on_question_ms=time_ms,
+                    is_suspicious=is_suspicious,
                     session_id=session_id,
                     presentation_period=period
                 ))
@@ -704,13 +745,15 @@ class SurveyViewSet(viewsets.ViewSet):
         if survey_responses:
             SurveyResponse.objects.bulk_create(survey_responses)
             
-            # Log event
+            # Log event with suspicious_count
             log_event(request.user, session_id, 'survey_completed', {
                 'question_count': len(survey_responses),
+                'is_suspicious': suspicious_count > 0,
+                'avg_response_ms': total_time_ms / len(survey_responses) if survey_responses else 0,
                 'timestamp': timezone.now().isoformat()
             })
             
-            return Response({'status': 'Anket başarıyla gönderildi.'})
+            return Response({'status': 'Anket başarıyla gönderildi.', 'suspicious_count': suspicious_count})
         
         return Response({'error': 'Geçerli yanıt bulunamadı.'}, status=400)
 

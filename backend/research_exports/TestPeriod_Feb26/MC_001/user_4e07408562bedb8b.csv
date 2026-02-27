@@ -5,3 +5,8 @@ anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count
 4e07408562bedb8b,MC_001,sess-1771867907718-h35x5cc32,final_stage_reached,,,,17,Monday,2026-02-23T17:32:14.497450+00:00,
 4e07408562bedb8b,MC_001,sess-1771955504754-x6ylk5vhr,task_created,12,,,18,Tuesday,2026-02-24T18:09:14.626050+00:00,
 4e07408562bedb8b,MC_001,sess-1772028496480-xqn8ijj2r,task_created,13,,,14,Wednesday,2026-02-25T14:10:35.799589+00:00,
+4e07408562bedb8b,MC_001,sess-1772046138386-o19fnb3wt,comment_sent,13,1,4,19,Wednesday,2026-02-25T19:36:38.344094+00:00,
+4e07408562bedb8b,MC_001,sess-1772046138386-o19fnb3wt,comment_sent,13,1,4,19,Wednesday,2026-02-25T19:43:21.393185+00:00,
+4e07408562bedb8b,MC_001,sess-1772046138386-o19fnb3wt,task_created,14,,,20,Wednesday,2026-02-25T20:07:17.941242+00:00,
+4e07408562bedb8b,MC_001,sess-1772054633770-tgds8qak1,task_created,15,,,21,Wednesday,2026-02-25T21:24:13.702787+00:00,
+4e07408562bedb8b,MC_001,sess-1772127764635-tbozwb3xl,task_completed,19,,,17,Thursday,2026-02-26T17:46:14.255155+00:00,
