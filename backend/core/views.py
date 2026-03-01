@@ -350,9 +350,12 @@ class TaskViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         task = serializer.save(created_by=self.request.user)
-        
+        # Research Logging
         session_id = self.request.headers.get('X-Session-ID', 'unknown_session')
-        log_event(self.request.user, session_id, 'task_created', {'task_id': task.id})
+        log_event(self.request.user, session_id, 'task_created', {
+            'task_id': task.id,
+            'parent_task_id': task.parent_task.id if task.parent_task else None
+        })
 
         for assignment in task.assignments.all():
             user = assignment.user
@@ -507,30 +510,40 @@ class DeviceViewSet(viewsets.ModelViewSet):
         hwid = request.data.get('hwid')
 
         user = authenticate(username=username, password=password)
-        if user is None: 
+        if user is None:
             return Response({'error': 'Kullanıcı adı veya şifre hatalı!'}, status=status.HTTP_401_UNAUTHORIZED)
 
-        login(request, user) 
+        login(request, user)
 
-        try: 
+        try:
             user_tenant = user.profile.tenant
             if user_tenant is None:
                 return Response({'error': 'Hesabınız onaylandı ancak henüz bir Şirkete atanmadı.'}, status=403)
-        except UserProfile.DoesNotExist: 
+        except UserProfile.DoesNotExist:
             return Response({'error': 'Profil hatası! Şirket kaydı yok.'}, status=403)
 
         if str(user_tenant.tenant_id).strip() != str(tenant_code_input).strip():
             return Response({'error': 'Girdiğiniz Şirket Kodu bu kullanıcıya ait değil!'}, status=403)
 
+        # Bypassing device security for testing
+        """
         device, _ = Device.objects.get_or_create(hwid=hwid, defaults={'name': f"{username}-PC", 'tenant': user_tenant, 'is_approved': True})
 
-        if device.tenant != user_tenant: 
+        if device.tenant != user_tenant:
             return Response({'error': 'Bu bilgisayar başka bir şirkete kilitlenmiş!'}, status=403)
-        if not device.is_approved: 
+        if not device.is_approved:
             return Response({'status': 'pending', 'message': 'Cihaz onayı bekleniyor.'})
+        """
+
 
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({'status': 'approved', 'tenant_name': user_tenant.name, 'user': username, 'token': token.key})
+        return Response({
+            'status': 'approved', 
+            'tenant_name': user_tenant.name, 
+            'user': username, 
+            'token': token.key,
+            'is_kanban': user_tenant.is_kanban
+        })
 
 @api_view(['POST'])
 @authentication_classes([])
@@ -888,3 +901,12 @@ class PipelineViewSet(viewsets.ViewSet):
             return Response({'error': 'Aşama bulunamadı.'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def log_interaction(request):
+    session_id = request.headers.get('X-Session-ID', 'unknown')
+    event_type = request.data.get('event_type', 'unknown')
+    metadata = {k: v for k, v in request.data.items() if k != 'event_type'}
+    log_event(request.user, session_id, event_type, metadata)
+    return Response({'status': 'logged'})

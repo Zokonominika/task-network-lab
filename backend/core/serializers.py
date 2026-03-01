@@ -115,8 +115,8 @@ class TaskDependencySerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
-    assignments = TaskAssignmentSerializer(many=True, read_only=True)
     attachments = TaskAttachmentSerializer(many=True, read_only=True)
+    subtasks = serializers.SerializerMethodField()
     
     node_data = serializers.SerializerMethodField()
     
@@ -135,6 +135,7 @@ class TaskSerializer(serializers.ModelSerializer):
             'assignments', 
             'attachments', 
             'node_data', 
+            'subtasks',
             'warning_sent',
             'created_at', 
             'updated_at'
@@ -153,6 +154,10 @@ class TaskSerializer(serializers.ModelSerializer):
                     'is_pinned': node.is_pinned
                 }
         return None
+    
+    def get_subtasks(self, obj):
+        # Recursive serialization
+        return TaskSerializer(obj.subtasks.all(), many=True, context=self.context).data
     
     def create(self, validated_data):
         assignee_ids = validated_data.pop('assignee_ids', [])

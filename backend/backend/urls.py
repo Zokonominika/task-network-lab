@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/users/deactivate_me/', UserViewSet.as_view({'post': 'deactivate_me'}), name='deactivate-me'),
     path('api/users/update_status/', UserViewSet.as_view({'post': 'update_status'}), name='update-status'),
     path('api/presentation/current/', views.current_presentation),
+    path('api/research/log_interaction/', views.log_interaction),
 ]
 
 if settings.DEBUG:

@@ -1,0 +1,7 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,task_created,91,,,17,Friday,2026-02-27T17:16:31.121293+00:00,
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,comment_sent,91,1,6,17,Friday,2026-02-27T17:16:43.567008+00:00,
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,comment_sent,91,1,6,17,Friday,2026-02-27T17:16:44.736606+00:00,
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,comment_sent,91,7,39,17,Friday,2026-02-27T17:16:56.657942+00:00,
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,stage_completed,86,,,18,Friday,2026-02-27T18:17:05.191473+00:00,
+9400f1b21cb527d7,TG123,sess-1772212563536-xdalhg93f,stage_completed,87,,,18,Friday,2026-02-27T18:19:26.013560+00:00,

@@ -1,0 +1,2 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+785f3ec7eb32f30b,TG123,sess-1772310486974-5gctapkgk,task_created,110,,,20,Saturday,2026-02-28T20:28:27.709954+00:00,

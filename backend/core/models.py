@@ -9,6 +9,7 @@ from django.utils import timezone
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
     tenant_id = models.CharField(max_length=20, unique=True)
+    is_kanban = models.BooleanField(default=False, verbose_name="Kanban Arayüzü")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -90,6 +91,7 @@ class Task(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='active')
     priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='normal')
     due_date = models.DateTimeField(null=True, blank=True)
+    parent_task = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='subtasks')
     created_at = models.DateTimeField(auto_now_add=True)
     warning_sent = models.BooleanField(default=False)
 
