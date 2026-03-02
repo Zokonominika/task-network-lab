@@ -367,7 +367,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                     user=user,
                     task=task,
                     title="Yeni Görev",
-                    message=f"{self.request.user.profile.display_name or self.request.user.username} sana '{task.title}' görevini atadı.",
+                    message=f"{self.request.user.first_name or self.request.user.username} sana '{task.title}' görevini atadı.",
                     notification_type="assignment" 
                 )
 
@@ -416,7 +416,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                 Notification.objects.create(
                     user=recipient,
                     title="Dosya Eklendi",
-                    message=f"{request.user.username}, '{task.title}' görevine yeni bir dosya ekledi.",
+                    message=f"{request.user.first_name or request.user.username}, '{task.title}' görevine yeni bir dosya ekledi.",
                     notification_type="file",
                 )
 
@@ -447,7 +447,7 @@ class TaskViewSet(viewsets.ModelViewSet):
                         user=creator,
                         task=task,
                         title="Bölüm Tamamlandı",
-                        message=f"{user.profile.display_name or user.username}, '{task.title}' görevindeki payını tamamladı.",
+                        message=f"{user.first_name or user.username}, '{task.title}' görevindeki payını tamamladı.",
                         notification_type='task_completed'
                     )
             
@@ -537,6 +537,32 @@ class DeviceViewSet(viewsets.ModelViewSet):
 
 
         token, _ = Token.objects.get_or_create(user=user)
+
+        # Auto-create pipeline tasks if missing
+        from .models import Task, TaskAssignment, PipelineTemplate, PresentationPeriod
+        has_pipeline = TaskAssignment.objects.filter(
+            user=user,
+            task__is_pipeline_task=True
+        ).exists()
+
+        if not has_pipeline:
+            period = PresentationPeriod.objects.order_by('-start_date').first()
+            if period:
+                template = period.pipeline.first()
+                if template:
+                    superuser = User.objects.filter(is_superuser=True).first()
+                    for stage in template.stages.all().order_by('order'):
+                        task = Task.objects.create(
+                            title=stage.title,
+                            description=stage.description or '',
+                            created_by=superuser,
+                            tenant=user.profile.tenant,
+                            is_pipeline_task=True,
+                            pipeline_stage=stage,
+                            status='active'
+                        )
+                        TaskAssignment.objects.create(task=task, user=user)
+
         return Response({
             'status': 'approved', 
             'tenant_name': user_tenant.name, 
@@ -580,6 +606,16 @@ class NotificationViewSet(viewsets.ModelViewSet):
         Notification.objects.filter(user=request.user).delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def tutorial_status(request):
+    if request.method == 'GET':
+        return Response({'tutorial_seen': request.user.profile.tutorial_seen})
+    elif request.method == 'POST':
+        request.user.profile.tutorial_seen = True
+        request.user.profile.save()
+        return Response({'status': 'saved'})
+
 class CommentViewSet(viewsets.ModelViewSet):
     queryset = Comment.objects.all()
     serializer_class = CommentSerializer
@@ -616,7 +652,7 @@ class CommentViewSet(viewsets.ModelViewSet):
                 Notification.objects.create(
                     user=recipient,
                     title="Yeni Yorum",
-                    message=f"{self.request.user.username}, '{task.title}' görevine yorum yaptı.",
+                    message=f"{self.request.user.first_name or self.request.user.username}, '{task.title}' görevine yorum yaptı.",
                     notification_type="comment",
                     task=task
                 )

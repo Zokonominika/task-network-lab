@@ -1,0 +1,12 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at,is_suspicious
+c2356069e9d1e79c,G_1,sess-1772383941005-v4mzvmt9m,task_created,118,,,16,Sunday,2026-03-01T16:53:52.706381+00:00,,
+c2356069e9d1e79c,G_1,sess-1772383941005-v4mzvmt9m,comment_sent,118,4,36,16,Sunday,2026-03-01T16:54:17.822688+00:00,,
+c2356069e9d1e79c,G_1,sess-1772383941005-v4mzvmt9m,comment_sent,118,4,35,16,Sunday,2026-03-01T16:54:42.966007+00:00,,
+c2356069e9d1e79c,G_1,sess-1772383941005-v4mzvmt9m,task_created,119,,,16,Sunday,2026-03-01T16:59:41.297604+00:00,,
+c2356069e9d1e79c,G_1,sess-1772383941005-v4mzvmt9m,task_created,120,,,17,Sunday,2026-03-01T17:00:18.722706+00:00,,
+c2356069e9d1e79c,G_1,sess-1772394598695-3o5i6zhvu,tutorial_interaction,,,,19,Sunday,2026-03-01T19:50:01.622853+00:00,,
+c2356069e9d1e79c,G_1,sess-1772394598695-3o5i6zhvu,tutorial_completed,,,,19,Sunday,2026-03-01T19:50:07.031242+00:00,,
+c2356069e9d1e79c,G_1,sess-1772394598695-3o5i6zhvu,comment_sent,118,1,11,19,Sunday,2026-03-01T19:50:19.193407+00:00,,
+c2356069e9d1e79c,G_1,sess-1772439408677-asmqq32a1,tutorial_interaction,,,,8,Monday,2026-03-02T08:17:06.104307+00:00,,
+c2356069e9d1e79c,G_1,sess-1772439408677-asmqq32a1,tutorial_completed,,,,8,Monday,2026-03-02T08:17:06.104307+00:00,,
+c2356069e9d1e79c,G_1,sess-1772444846888-yrmj19gs2,tutorial_interaction,,,,9,Monday,2026-03-02T09:47:35.215617+00:00,,

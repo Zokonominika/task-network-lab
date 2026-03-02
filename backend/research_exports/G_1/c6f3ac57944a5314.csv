@@ -1,0 +1,2 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at,is_suspicious
+c6f3ac57944a5314,G_1,sess-1772393700498-rynyfy30l,tutorial_completed,,,,19,Sunday,2026-03-01T19:40:36.503917+00:00,,

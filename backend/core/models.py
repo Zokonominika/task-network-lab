@@ -57,7 +57,8 @@ class UserProfile(models.Model):
     # 3. Gizlilik ve Bildirimler (JSON olarak tutmak en temizi)
     privacy_settings = models.JSONField(default=dict, blank=True)
     notification_settings = models.JSONField(default=dict, blank=True)
-
+    tutorial_seen = models.BooleanField(default=False)
+    
     @property
     def display_name(self):
         suffix = "Bey" if self.gender == 'male' else "Hanım" if self.gender == 'female' else ""

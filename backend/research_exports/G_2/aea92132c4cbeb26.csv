@@ -1,2 +1,2 @@
 anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at,is_suspicious
-785f3ec7eb32f30b,TG123,sess-1772310486974-5gctapkgk,task_created,110,,,20,Saturday,2026-02-28T20:28:27.709954+00:00,,
+aea92132c4cbeb26,G_2,sess-1772443594319-9mpm3ju82,tutorial_interaction,,,,9,Monday,2026-03-02T09:29:18.861542+00:00,,

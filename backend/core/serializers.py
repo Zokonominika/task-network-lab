@@ -115,6 +115,7 @@ class TaskDependencySerializer(serializers.ModelSerializer):
 
 class TaskSerializer(serializers.ModelSerializer):
     created_by = UserSerializer(read_only=True)
+    assignments = TaskAssignmentSerializer(many=True, read_only=True)
     attachments = TaskAttachmentSerializer(many=True, read_only=True)
     subtasks = serializers.SerializerMethodField()
     

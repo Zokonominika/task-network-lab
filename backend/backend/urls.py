@@ -4,7 +4,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from core.views import (
     register_user, TaskViewSet, DeviceViewSet, TaskNodeViewSet, 
-    UserViewSet, TaskDependencyViewSet, SurveyViewSet, PipelineViewSet
+    UserViewSet, TaskDependencyViewSet, SurveyViewSet, PipelineViewSet,
+    tutorial_status
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -23,13 +24,14 @@ router.register(r'pipeline', views.PipelineViewSet, basename='pipeline')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls)), # Tüm API'ler /api/ altında olacak
     path('api/register/', register_user, name='register'),
     path('api/research/export/', views.export_activity_logs, name='research-export'),
     path('api/users/deactivate_me/', UserViewSet.as_view({'post': 'deactivate_me'}), name='deactivate-me'),
     path('api/users/update_status/', UserViewSet.as_view({'post': 'update_status'}), name='update-status'),
+    path('api/users/tutorial_status/', tutorial_status, name='tutorial-status'),
     path('api/presentation/current/', views.current_presentation),
     path('api/research/log_interaction/', views.log_interaction),
+    path('api/', include(router.urls)),
 ]
 
 if settings.DEBUG:

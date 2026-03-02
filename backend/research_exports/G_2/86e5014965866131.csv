@@ -1,0 +1,4 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at,is_suspicious
+86e5014965866131,G_2,sess-1772438682569-7cqok24v4,tutorial_interaction,,,,8,Monday,2026-03-02T08:14:32.018823+00:00,,
+86e5014965866131,G_2,sess-1772439380688-ativ0onqz,tutorial_interaction,,,,8,Monday,2026-03-02T08:16:24.959609+00:00,,
+86e5014965866131,G_2,sess-1772439391755-xiw6h37im,tutorial_interaction,,,,8,Monday,2026-03-02T08:16:40.096334+00:00,,

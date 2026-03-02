@@ -1,0 +1,4 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at,is_suspicious
+59e19706d51d39f6,G_2,sess-1772436600088-o34riqzha,task_created,142,,,7,Monday,2026-03-02T07:30:26.035219+00:00,,
+59e19706d51d39f6,G_2,sess-1772437255596-y3te6yt6b,comment_sent,142,4,32,7,Monday,2026-03-02T07:41:15.712298+00:00,,
+59e19706d51d39f6,G_2,sess-1772443769603-bl8ajmi02,tutorial_interaction,,,,9,Monday,2026-03-02T09:44:16.471919+00:00,,

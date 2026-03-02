@@ -1,0 +1,4 @@
+anonymous_user_id,group_code,session_id,event_type,task_id,word_count,char_count,hour_of_day,day_of_week,timestamp,survey_completed_at
+35135aaa6cc23891,G_2,sess-1772436641800-dw28wxiif,comment_sent,142,2,19,7,Monday,2026-03-02T07:37:36.671039+00:00,
+35135aaa6cc23891,G_2,sess-1772436641800-dw28wxiif,comment_sent,142,7,59,7,Monday,2026-03-02T07:37:47.279765+00:00,
+35135aaa6cc23891,G_2,sess-1772436641800-dw28wxiif,comment_sent,142,3,26,7,Monday,2026-03-02T07:38:11.095820+00:00,
