@@ -10,7 +10,8 @@ from django.contrib.auth.models import User
 from .models import (
     Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, 
     TaskDependency, TaskAttachment, Notification, Comment, PresentationPeriod,
-    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage
+    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage,
+    ActivityLog, ResearchUserAlias
 )
 from .serializers import (
     TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, 
@@ -18,10 +19,12 @@ from .serializers import (
     NotificationSerializer, CommentSerializer, SurveyQuestionSerializer
 )
 from .logging_utils import log_event
+from .services import export_user_session_csv, generate_global_activity_csv
+
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from django.utils import timezone
-from django.db.models import Count, Q
+from django.db.models import Count, Q, Max
 from django.db.models.functions import TruncDate
 from datetime import timedelta
 from django.db import transaction
@@ -80,9 +83,7 @@ class UserViewSet(viewsets.ModelViewSet):
             profile.save()
 
             if status == 'offline':
-                try:
-                    export_user_csv(request.user)
-                except Exception as e:
+                    export_user_session_csv(request.user)
                     print(f"Logout export error: {e}")
 
             return Response({'status': 'Durum güncellendi', 'current': status})
@@ -212,9 +213,7 @@ class UserViewSet(viewsets.ModelViewSet):
             })
 
         # 2. Export user CSV
-        try:
-            export_user_csv(user)
-        except Exception as e:
+            export_user_session_csv(user)
             print(f"Deactivation export error: {e}")
 
         # 3. Set inactive
@@ -264,6 +263,17 @@ class TaskViewSet(viewsets.ModelViewSet):
         return Task.objects.filter(
             Q(created_by=user) | Q(assignments__user=user)
         ).distinct()
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        session_id = request.headers.get('X-Session-ID', 'unknown_session')
+        # Research logging for file downloads (triggered on task retrieval per instructions)
+        for attachment in instance.attachments.all():
+            log_event(request.user, session_id, 'file_downloaded', {
+                'task_id': instance.id,
+                'file_type': attachment.file_type
+            })
+        return super().retrieve(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
     def update_position(self, request, pk=None):
@@ -500,9 +510,7 @@ class DeviceViewSet(viewsets.ModelViewSet):
     queryset = Device.objects.all()
     serializer_class = DeviceSerializer
 
-    @action(detail=False, methods=['post'])
-    @authentication_classes([])
-    @permission_classes([AllowAny])
+    @action(detail=False, methods=['post'], authentication_classes=[], permission_classes=[AllowAny])
     def login_user(self, request):
         tenant_code_input = request.data.get('tenant_code')
         username = request.data.get('username')
@@ -525,18 +533,27 @@ class DeviceViewSet(viewsets.ModelViewSet):
         if str(user_tenant.tenant_id).strip() != str(tenant_code_input).strip():
             return Response({'error': 'Girdiğiniz Şirket Kodu bu kullanıcıya ait değil!'}, status=403)
 
-        # Bypassing device security for testing
-        """
-        device, _ = Device.objects.get_or_create(hwid=hwid, defaults={'name': f"{username}-PC", 'tenant': user_tenant, 'is_approved': True})
-
-        if device.tenant != user_tenant:
-            return Response({'error': 'Bu bilgisayar başka bir şirkete kilitlenmiş!'}, status=403)
-        if not device.is_approved:
-            return Response({'status': 'pending', 'message': 'Cihaz onayı bekleniyor.'})
-        """
-
-
         token, _ = Token.objects.get_or_create(user=user)
+
+        # Logging login event
+        session_id = request.headers.get('X-Session-ID', 'unknown_session')
+        log_event(user, session_id, 'login', {'timestamp': timezone.now().isoformat()})
+
+        # Generate Alias if not exists
+        if not ResearchUserAlias.objects.filter(user=user).exists():
+            is_kanban = user_tenant.is_kanban
+            prefix = 'B' if is_kanban else 'A'
+            count = ResearchUserAlias.objects.filter(alias__startswith=prefix).count()
+            alias = f"{prefix}{count + 1}"
+            
+            hash_obj = hashlib.sha256(str(user.id).encode())
+            anonymous_id = hash_obj.hexdigest()[0:16]
+            
+            ResearchUserAlias.objects.create(
+                user=user,
+                alias=alias,
+                anonymous_id=anonymous_id
+            )
 
         # Auto-create pipeline tasks if missing
         from .models import Task, TaskAssignment, PipelineTemplate, PresentationPeriod
@@ -592,6 +609,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def mark_all_read(self, request):
         self.get_queryset().update(is_read=True)
+        session_id = request.headers.get('X-Session-ID', 'system')
+        log_event(request.user, session_id, 'notification_seen', {})
         return Response({'status': 'Hepsi okundu'})
     
     @action(detail=True, methods=['post'])
@@ -603,7 +622,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['delete'])
     def clear_all(self, request):
+        count = Notification.objects.filter(user=request.user).count()
         Notification.objects.filter(user=request.user).delete()
+        session_id = request.headers.get('X-Session-ID', 'system')
+        log_event(request.user, session_id, 'notification_cleared', {'count': count})
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 @api_view(['GET', 'POST'])
@@ -660,139 +682,16 @@ class CommentViewSet(viewsets.ModelViewSet):
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def export_activity_logs(request):
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="activity_logs.csv"'
-
-    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    export_dir = os.path.join(backend_root, 'research_exports')
-    
-    if not os.path.exists(export_dir):
-        os.makedirs(export_dir)
-    
-    timestamp = timezone.now().strftime('%Y-%m-%d_%H-%M')
-    filename = f"export_{timestamp}.csv"
-    local_path = os.path.join(export_dir, filename)
-
-    with open(local_path, 'w', newline='', encoding='utf-8') as f:
-        writer_res = csv.writer(response)
-        writer_file = csv.writer(f)
-        
-        headers = [
-            'session_id', 'event_type', 'group_code', 'task_id', 
-            'word_count', 'char_count', 'hour_of_day', 'day_of_week', 
-            'created_at', 'anonymous_user_id', 
-            'survey_suspicious_count', 'survey_avg_response_ms'
-        ]
-        writer_res.writerow(headers)
-        writer_file.writerow(headers)
-
-        logs = ActivityLog.objects.all().order_by('-created_at')
-        for log in logs:
-            anon_user_id = ""
-            group_code = "N/A"
-            
-            if log.user:
-                hash_obj = hashlib.sha256(str(log.user.id).encode())
-                anon_user_id = hash_obj.hexdigest()[0:16]
-                
-                try:
-                    if hasattr(log.user, 'profile') and log.user.profile.tenant:
-                        group_code = log.user.profile.tenant.tenant_id
-                except:
-                    pass
-            
-            meta = log.metadata if isinstance(log.metadata, dict) else {}
-            task_id = meta.get('task_id', '')
-            word_count = meta.get('word_count', '')
-            char_count = meta.get('char_count', '')
-            
-            raw_suspicious = meta.get('is_suspicious', '')
-            suspicious_count = 1 if raw_suspicious is True else (0 if raw_suspicious is False else '')
-            avg_response = meta.get('avg_response_ms', '')
-
-            hour_of_day = log.created_at.hour
-            day_of_week = log.created_at.strftime('%A')
-            
-            row = [
-                log.session_id,
-                log.event_type,
-                group_code,
-                task_id,
-                word_count,
-                char_count,
-                hour_of_day,
-                day_of_week,
-                log.created_at.isoformat(),
-                anon_user_id,
-                suspicious_count,
-                avg_response
-            ]
-            writer_res.writerow(row)
-            writer_file.writerow(row)
-
-    return response
-
-def export_user_csv(user):
-    hash_obj = hashlib.sha256(str(user.id).encode())
-    anonymous_id = hash_obj.hexdigest()[0:16]
-
-    group_code = "N/A"
     try:
-        if hasattr(user, 'profile') and user.profile.tenant:
-            group_code = user.profile.tenant.tenant_id
-    except:
-        pass
+        local_path = generate_global_activity_csv()
+        with open(local_path, 'r', encoding='utf-8') as f:
+            response = HttpResponse(f.read(), content_type='text/csv')
+            response['Content-Disposition'] = f'attachment; filename="{os.path.basename(local_path)}"'
+            return response
+    except Exception as e:
+        return Response({'error': str(e)}, status=500)
 
-    backend_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    export_dir = os.path.join(backend_root, 'research_exports', str(group_code))
-    if not os.path.exists(export_dir):
-        os.makedirs(export_dir)
-
-    file_path = os.path.join(export_dir, f"{anonymous_id}.csv")
-
-    logs = ActivityLog.objects.filter(user=user).order_by('created_at')
-    
-    latest_survey = ActivityLog.objects.filter(
-        user=user, 
-        event_type='survey_completed'
-    ).order_by('-created_at').first()
-    survey_completed_at = latest_survey.created_at.isoformat() if latest_survey else ""
-
-    with open(file_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.writer(f)
-        headers = [
-            'anonymous_user_id', 'group_code', 'session_id', 'event_type', 
-            'task_id', 'word_count', 'char_count', 'hour_of_day', 
-            'day_of_week', 'timestamp', 'survey_completed_at', 'is_suspicious'
-        ]
-        writer.writerow(headers)
-
-        for log in logs:
-            meta = log.metadata if isinstance(log.metadata, dict) else {}
-            
-            is_suspicious = ""
-            if log.event_type == 'survey_completed':
-                raw_suspicious = meta.get('is_suspicious')
-                if raw_suspicious is True:
-                    is_suspicious = 1
-                elif raw_suspicious is False:
-                    is_suspicious = 0
-            
-            row = [
-                anonymous_id,
-                group_code,
-                log.session_id,
-                log.event_type,
-                meta.get('task_id', ''),
-                meta.get('word_count', ''),
-                meta.get('char_count', ''),
-                log.created_at.hour,
-                log.created_at.strftime('%A'),
-                log.created_at.isoformat(),
-                survey_completed_at,
-                is_suspicious
-            ]
-            writer.writerow(row)
+# export_user_csv function removed and replaced by service calls
 
 class SurveyViewSet(viewsets.ViewSet):
     def get_permissions(self):

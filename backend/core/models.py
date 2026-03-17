@@ -204,6 +204,14 @@ class ActivityLog(models.Model):
         user_str = self.user.username if self.user else "Anonymous"
         return f"{user_str} - {self.event_type} ({self.created_at})"
 
+class ResearchUserAlias(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='research_alias')
+    alias = models.CharField(max_length=10)  # e.g. 'A1', 'B2'
+    anonymous_id = models.CharField(max_length=16)
+
+    def __str__(self):
+        return f"{self.user.username} -> {self.alias}"
+
 class PresentationPeriod(models.Model):
     name = models.CharField(max_length=100, verbose_name="Dönem Adı")
     start_date = models.DateField(verbose_name="Başlangıç Tarihi")
