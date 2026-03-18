@@ -5,7 +5,7 @@ from rest_framework.routers import DefaultRouter
 from core.views import (
     register_user, TaskViewSet, DeviceViewSet, TaskNodeViewSet, 
     UserViewSet, TaskDependencyViewSet, SurveyViewSet, PipelineViewSet,
-    tutorial_status
+    tutorial_status, get_qualitative_question, submit_qualitative_response
 )
 from django.conf import settings
 from django.conf.urls.static import static
@@ -30,6 +30,8 @@ urlpatterns = [
     path('api/users/update_status/', UserViewSet.as_view({'post': 'update_status'}), name='update-status'),
     path('api/users/tutorial_status/', tutorial_status, name='tutorial-status'),
     path('api/presentation/current/', views.current_presentation),
+    path('api/pipeline/qualitative_question/<int:stage_id>/', get_qualitative_question),
+    path('api/pipeline/qualitative_response/', submit_qualitative_response),
     path('api/research/log_interaction/', views.log_interaction),
     path('api/', include(router.urls)),
 ]

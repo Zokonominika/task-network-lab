@@ -11,7 +11,7 @@ from .models import (
     Task, Device, TaskNode, Tenant, UserProfile, TaskAssignment, 
     TaskDependency, TaskAttachment, Notification, Comment, PresentationPeriod,
     SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage,
-    ActivityLog, ResearchUserAlias
+    ActivityLog, ResearchUserAlias, PipelineQualitativeQuestion, PipelineQualitativeResponse
 )
 from .serializers import (
     TaskSerializer, DeviceSerializer, TaskNodeSerializer, UserSerializer, 
@@ -620,7 +620,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notif.save()
         return Response({'status': 'Okundu'})
     
-    @action(detail=False, methods=['delete'])
+    @action(detail=False, methods=['post', 'delete'])
     def clear_all(self, request):
         count = Notification.objects.filter(user=request.user).count()
         Notification.objects.filter(user=request.user).delete()
@@ -797,6 +797,55 @@ class PipelineViewSet(viewsets.ViewSet):
             is_previous_completed = is_completed
 
         return Response(results)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_qualitative_question(request, stage_id):
+    # Get all questions for this stage
+    # Exclude questions already answered by this user
+    # Return random unanswered question
+    answered_ids = PipelineQualitativeResponse.objects.filter(
+        user=request.user,
+        question__stage_id=stage_id
+    ).values_list('question_id', flat=True)
+
+    questions = PipelineQualitativeQuestion.objects.filter(
+        stage_id=stage_id,
+        is_active=True
+    ).exclude(id__in=answered_ids)
+
+    if not questions.exists():
+        return Response({'question': None})
+
+    question = questions.order_by('?').first()
+    return Response({
+        'question_id': question.id,
+        'text': question.text
+    })
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_qualitative_response(request):
+    question_id = request.data.get('question_id')
+    response_text = request.data.get('response_text', '')
+    session_id = request.headers.get('X-Session-ID', 'unknown')
+
+    try:
+        question = PipelineQualitativeQuestion.objects.get(id=question_id)
+        PipelineQualitativeResponse.objects.create(
+            user=request.user,
+            question=question,
+            response_text=response_text,
+            session_id=session_id
+        )
+        log_event(request.user, session_id, 'qualitative_response_submitted', {
+            'stage_id': question.stage_id,
+            'question_id': question_id,
+            'response_length': len(response_text)
+        })
+        return Response({'status': 'saved'})
+    except PipelineQualitativeQuestion.DoesNotExist:
+        return Response({'error': 'Soru bulunamadı'}, status=404)
 
     @action(detail=False, methods=['post'])
     def complete_stage(self, request):

@@ -222,28 +222,20 @@ class TaskSerializer(serializers.ModelSerializer):
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    title = serializers.CharField(write_only=True, required=False)
     gender = serializers.ChoiceField(choices=[('male', 'Erkek'), ('female', 'Kadın')], write_only=True)
     
     class Meta:
         model = User
-        fields = ['username', 'password', 'first_name', 'last_name', 'title', 'gender']
+        fields = ['username', 'password', 'gender']
 
     def create(self, validated_data):
-        title = validated_data.pop('title', '')
         gender = validated_data.pop('gender', '')
-        raw_first_name = validated_data.get('first_name', '')
-        raw_last_name = validated_data.get('last_name', '')
-        formatted_first_name = raw_first_name.title() if raw_first_name else ''
-        formatted_last_name = raw_last_name.title() if raw_last_name else ''
 
         user = User.objects.create_user(
             username=validated_data['username'],
-            password=validated_data['password'],
-            first_name=formatted_first_name,
-            last_name=formatted_last_name
+            password=validated_data['password']
         )
-        UserProfile.objects.create(user=user, title=title, gender=gender, tenant=None)
+        UserProfile.objects.create(user=user, gender=gender, tenant=None)
         return user
 
 class NotificationSerializer(serializers.ModelSerializer):

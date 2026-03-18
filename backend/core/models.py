@@ -8,9 +8,13 @@ from django.utils import timezone
 # --- TENANT (ŞİRKET) ---
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
-    tenant_id = models.CharField(max_length=20, unique=True)
-    is_kanban = models.BooleanField(default=False, verbose_name="Kanban Arayüzü")
+    tenant_id = models.CharField(max_length=20, unique=True, verbose_name="Grup Kodu")
+    is_kanban = models.BooleanField(default=False, verbose_name="Arayüz Tipi (Kanban=True, Spiral=False)")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Araştırma Grubu"
+        verbose_name_plural = "Araştırma Grupları"
 
     def __str__(self):
         return self.name
@@ -38,7 +42,7 @@ class UserProfile(models.Model):
     # Yeni Kurumsal Alanlar
     department = models.ForeignKey(Department, on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Departman")
     rank = models.IntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(10)], verbose_name="Rütbe (1-10)")
-    title = models.CharField(max_length=100, blank=True, null=True, verbose_name="Unvan")
+    title = models.CharField(max_length=100, blank=True, null=True, verbose_name="Rol")
     avatar_id = models.IntegerField(default=1) 
     current_status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='offline')
     age = models.IntegerField(blank=True, null=True, verbose_name="Yaş")
@@ -71,10 +75,14 @@ class UserProfile(models.Model):
 # --- CİHAZ ---
 class Device(models.Model):
     name = models.CharField(max_length=100)
-    hwid = models.CharField(max_length=100, unique=True)
+    hwid = models.CharField(max_length=100, unique=True, verbose_name="Cihaz ID")
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
-    is_approved = models.BooleanField(default=False)
+    is_approved = models.BooleanField(default=False, verbose_name="Katılımcı Onayı")
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Cihaz Kaydı"
+        verbose_name_plural = "Cihaz Kayıtları"
 
     def __str__(self):
         return f"{self.name} ({self.tenant.name})"
@@ -274,8 +282,8 @@ class PipelineTemplate(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Süreç Taslağı"
-        verbose_name_plural = "Süreç Taslakları"
+        verbose_name = "Sunum Takvimi"
+        verbose_name_plural = "Sunum Takvimleri"
 
     def __str__(self):
         return self.name
@@ -289,8 +297,8 @@ class PipelineStage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = "Süreç Aşaması"
-        verbose_name_plural = "Süreç Aşamaları"
+        verbose_name = "Aşama"
+        verbose_name_plural = "Aşamalar"
         ordering = ['order']
 
     def __str__(self):
@@ -340,3 +348,22 @@ def pipeline_onboarding_signal(sender, instance, **kwargs):
                     # TaskAssignment.objects.create uses task and user
                     from .models import TaskAssignment
                     TaskAssignment.objects.create(task=task, user=instance.user)
+
+class PipelineQualitativeQuestion(models.Model):
+    stage = models.ForeignKey(PipelineStage, on_delete=models.CASCADE, related_name='qualitative_questions')
+    text = models.TextField()
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.stage.title} - {self.text[:50]}"
+
+class PipelineQualitativeResponse(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    question = models.ForeignKey(PipelineQualitativeQuestion, on_delete=models.CASCADE)
+    response_text = models.TextField(blank=True)
+    session_id = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.question.stage.title}"

@@ -1,4 +1,4 @@
-import { User as UserIcon, Briefcase, LogOut, ChevronDown, Shield } from 'lucide-react'; // Mail ve Phone ikonlarını sildim
+import { LogOut } from 'lucide-react'; // Mail ve Phone ikonlarını sildim
 import type { UserData, UserStatus } from '../types';
 
 interface TeamPanelProps {
@@ -10,12 +10,12 @@ interface TeamPanelProps {
 }
 
 export default function TeamPanel({ currentUser, colleagues, onLogout, onUpdateStatus, preferredStatus }: TeamPanelProps) {
-    
+
     const myProfile = colleagues.find(c => c.username === currentUser);
     const otherColleagues = colleagues.filter(c => c.username !== currentUser);
 
     const getStatusColor = (status: string = 'offline') => {
-        switch(status) {
+        switch (status) {
             case 'online': return '#4CAF50';
             case 'busy': return '#ff4444';
             case 'away': return '#FFD700';
@@ -24,84 +24,80 @@ export default function TeamPanel({ currentUser, colleagues, onLogout, onUpdateS
     };
 
     // Yükleniyor durumu
-    if (!myProfile) return <div style={{color:'white', padding:20}}>Profil yükleniyor...</div>;
+    if (!myProfile) return <div style={{ color: 'white', padding: 20 }}>Profil yükleniyor...</div>;
 
     return (
         <div style={{
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100%', 
-            paddingBottom: '50px', 
-            gap: 20,
-            overflow: 'hidden' 
+            display: 'flex',
+            flexDirection: 'column',
+            height: '100%',
+            gap: 16,
+            overflow: 'hidden'
         }}>
-            
-            {/* 1. BÖLÜM: BENİM PROFİL KARTIM (SABİT) */}
+
+            {/* 1. BÖLÜM: BENİM PROFİL KARTIM */}
             <div style={{
-                background: '#252525', 
-                padding: 20, 
-                borderRadius: 12, 
-                border: '1px solid #444',
-                flexShrink: 0 
+                background: '#1a1a1a',
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '1px solid #333',
+                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12
             }}>
-                {/* Üst Kısım: Avatar ve İsim */}
-                <div style={{display:'flex', alignItems:'center', gap:15, marginBottom:15}}>
-                    <div style={{
-                        width: 60, height: 60, borderRadius: '50%', 
-                        background: myProfile.gender === 'female' ? '#e91e63' : '#2196F3', 
-                        display:'flex', alignItems:'center', justifyContent:'center',
-                        border: '3px solid #333'
-                    }}>
-                        <UserIcon size={32} color="white"/>
-                    </div>
-                    <div style={{flex:1}}>
-                        <div style={{fontWeight:'bold', fontSize:'1.1rem', color:'white'}}>
-                            {myProfile.display_name || currentUser}
-                        </div>
-                        <div style={{fontSize:'0.8rem', color:'#aaa', display:'flex', alignItems:'center', gap:5}}>
-                            <Briefcase size={12}/> {myProfile.title || 'Unvan Yok'}
-                        </div>
-                        <div style={{fontSize:'0.75rem', color:'#666', marginTop:2}}>
-                            {myProfile.department || 'Genel Departman'}
-                        </div>
-                    </div>
-                    <button onClick={onLogout} title="Çıkış Yap" style={{background:'#330000', border:'1px solid #550000', borderRadius:6, color:'#ff4444', cursor:'pointer', padding:8}}>
-                        <LogOut size={18} /> 
-                    </button>
+                {/* Initial Avatar */}
+                <div style={{
+                    width: 44, height: 44, borderRadius: '50%', flexShrink: 0,
+                    background: myProfile.gender === 'female' ? '#e91e63' : '#2196F3',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem', fontWeight: 'bold', color: 'white',
+                    border: '2px solid #333'
+                }}>
+                    {(myProfile.first_name || currentUser).charAt(0).toUpperCase()}
                 </div>
 
-                {/* ORTA KISIM: İLETİŞİM BİLGİLERİ - İPTAL EDİLDİ (DENEY GÜVENLİĞİ) */}
-                {/* Öğrencilerin WhatsApp yerine Sistem Chat'ini kullanması için iletişim bilgilerini gizliyoruz.
-                <div style={{display:'flex', flexDirection:'column', gap:8, marginBottom:15, padding:'10px', background:'rgba(0,0,0,0.2)', borderRadius:6}}>
-                    <div style={{display:'flex', alignItems:'center', gap:8, fontSize:'0.8rem', color:'#ccc'}}>
-                        <Mail size={14} color="#aaa"/> {myProfile.email || 'Gizli'}
+                {/* Name + Status */}
+                <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1rem', color: 'white' }}>
+                        {myProfile.first_name || currentUser}
                     </div>
-                </div> 
-                */}
-
-                {/* Alt Kısım: Durum Değiştirici */}
-                <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', background:'#111', border: '1px solid #333', padding:'10px 12px', borderRadius:6}}>
-                    <span style={{fontSize:'0.8rem', color:'#888'}}>Durumum:</span>
-                    <div style={{position:'relative', display: 'flex', alignItems: 'center'}}>
-                        <div style={{width: 8, height: 8, borderRadius: '50%', background: getStatusColor(myProfile.status), marginRight: 8, boxShadow: `0 0 8px ${getStatusColor(myProfile.status || 'offline')}`}} />
-                        <select 
-                            value={(myProfile.status === 'away' || myProfile.status === 'offline') ? preferredStatus : myProfile.status} 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3 }}>
+                        <div style={{
+                            width: 7, height: 7, borderRadius: '50%',
+                            background: getStatusColor(myProfile.status),
+                            boxShadow: `0 0 6px ${getStatusColor(myProfile.status || 'offline')}`
+                        }} />
+                        <select
+                            value={(myProfile.status === 'away' || myProfile.status === 'offline') ? preferredStatus : myProfile.status}
                             onChange={(e) => onUpdateStatus(e.target.value as UserStatus)}
-                            style={{appearance:'none', background:'transparent', border:'none', color:'white', fontSize:'0.85rem', fontWeight:'bold', cursor:'pointer', outline:'none', paddingRight: 18, textAlignLast: 'right'}}
+                            style={{ appearance: 'none', background: 'transparent', border: 'none', color: '#aaa', fontSize: '0.8rem', cursor: 'pointer', outline: 'none' }}
                         >
-                            <option value="online" style={{background:'#222', color:'#4CAF50'}}>Çevrimiçi</option>
-                            <option value="busy" style={{background:'#222', color:'#ff4444'}}>Meşgul</option>
+                            <option value="online" style={{ background: '#222', color: '#4CAF50' }}>Çevrimiçi</option>
+                            <option value="busy" style={{ background: '#222', color: '#ff4444' }}>Meşgul</option>
                         </select>
-                        <ChevronDown size={14} style={{position:'absolute', right:0, top:4, pointerEvents:'none', color:'#888'}}/>
+                        {myProfile.status === 'away' && <span style={{ fontSize: '0.7rem', color: '#FFD700', fontStyle: 'italic' }}>(Uzakta)</span>}
                     </div>
                 </div>
-                {myProfile.status === 'away' && (<div style={{textAlign:'center', fontSize:'0.7rem', color:'#FFD700', marginTop:5, fontStyle:'italic'}}>(Sistem otomatik olarak "Uzakta" moduna aldı)</div>)}
+
+                {/* Logout — subtle */}
+                <button onClick={onLogout} title="Çıkış Yap" style={{
+                    background: 'transparent', border: '1px solid #333',
+                    borderRadius: 6, color: '#666', cursor: 'pointer',
+                    padding: '6px 8px', display: 'flex', alignItems: 'center',
+                    transition: '0.2s', flexShrink: 0
+                }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#ff4444'; e.currentTarget.style.color = '#ff4444'; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#333'; e.currentTarget.style.color = '#666'; }}
+                >
+                    <LogOut size={15} />
+                </button>
             </div>
-            
+
             {/* 2. BÖLÜM: EKİP LİSTESİ */}
             <div style={{
-                flex: 1, 
-                background: '#252525',
+                flex: 1,
+                background: '#1a1a1a',
                 borderRadius: 12,
                 border: '1px solid #333',
                 display: 'flex',
@@ -110,14 +106,14 @@ export default function TeamPanel({ currentUser, colleagues, onLogout, onUpdateS
             }}>
                 {/* Başlık */}
                 <div style={{
-                    padding: '12px 15px', 
-                    background: 'rgba(0,0,0,0.2)', 
-                    borderBottom:'1px solid #333',
-                    color: '#aaa', fontWeight:'bold', fontSize:'0.85rem',
-                    display:'flex', justifyContent:'space-between'
+                    padding: '10px 14px',
+                    borderBottom: '1px solid #222',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
                 }}>
-                    <span>Ekip Üyeleri</span>
-                    <span style={{background:'#333', padding:'2px 8px', borderRadius:10, fontSize:'0.7rem', color:'white'}}>
+                    <span style={{ fontSize: '0.75rem', color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Grup Üyeleri</span>
+                    <span style={{ background: '#252525', border: '1px solid #333', padding: '2px 8px', borderRadius: 10, fontSize: '0.7rem', color: '#aaa' }}>
                         {otherColleagues.length}
                     </span>
                 </div>
@@ -126,47 +122,59 @@ export default function TeamPanel({ currentUser, colleagues, onLogout, onUpdateS
                 <div style={{
                     flex: 1,
                     overflowY: 'auto',
-                    padding: 10,
-                    display: 'flex', flexDirection: 'column', gap: 10
+                    scrollbarWidth: 'none',
+                    display: 'flex',
+                    flexDirection: 'column'
                 }}>
-                    {otherColleagues.map(user => (
+                    {otherColleagues.map((user, index) => (
                         <div key={user.id} style={{
-                            padding: 12, 
-                            background: '#1a1a1a', 
-                            borderRadius: 8, 
-                            border: '1px solid #333',
-                            transition: '0.2s'
-                        }}>
-                            {/* Avatar ve İsim */}
-                            <div style={{display:'flex', alignItems:'center', gap:10}}>
-                                <div style={{position:'relative'}}>
-                                    <div style={{width: 36, height: 36, borderRadius: '50%', background: user.gender === 'female' ? '#e91e63' : '#2196F3', display:'flex', alignItems:'center', justifyContent:'center'}}>
-                                        <UserIcon size={18} color="white"/>
-                                    </div>
-                                    <div style={{position:'absolute', bottom:0, right:0, width:10, height:10, borderRadius:'50%', background: getStatusColor(user.status || 'offline'), border:'2px solid #1a1a1a'}}></div>
-                                </div>
-                                <div style={{flex:1}}>
-                                    <div style={{fontSize:'0.9rem', fontWeight:'bold', display:'flex', alignItems:'center', gap:5, color:'white'}}>
-                                        {user.display_name || user.username}
-                                        {(user.rank || 1) >= 7 && <Shield size={14} color="#FFD700" fill="#FFD700" fillOpacity={0.3}/>}
-                                    </div>
-                                    <div style={{fontSize:'0.7rem', color:'#888', display:'flex', alignItems:'center', gap:8}}>
-                                        <span>{user.title || 'Çalışan'}</span>
-                                        <span style={{width:3, height:3, borderRadius:'50%', background:'#555'}}></span>
-                                        <span>{user.department || 'Genel'}</span>
-                                    </div>
+                            padding: '10px 14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10,
+                            borderBottom: index < otherColleagues.length - 1 ? '1px solid #222' : 'none',
+                            transition: '0.15s'
+                        }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#222'}
+                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                            {/* Initial Avatar */}
+                            <div style={{
+                                width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+                                background: user.gender === 'female' ? '#e91e63' : '#2196F3',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '0.85rem', fontWeight: 'bold', color: 'white',
+                                position: 'relative'
+                            }}>
+                                {(user.first_name || user.username).charAt(0).toUpperCase()}
+                                {/* Status dot */}
+                                <div style={{
+                                    position: 'absolute', bottom: 0, right: 0,
+                                    width: 9, height: 9, borderRadius: '50%',
+                                    background: getStatusColor(user.status || 'offline'),
+                                    border: '2px solid #1a1a1a'
+                                }} />
+                            </div>
+
+                            {/* Name */}
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '0.9rem', color: 'white', fontWeight: 'bold' }}>
+                                    {user.first_name || user.username}
                                 </div>
                             </div>
 
-                            {/* İLETİŞİM BİLGİLERİ - GİZLENDİ */}
-                            {/* <div style={{marginTop: 8, background:'rgba(255,255,255,0.03)', padding:8, borderRadius:4, display:'flex', flexDirection:'column', gap:5}}>
-                                <div style={{display:'flex', alignItems:'center', gap:8, fontSize:'0.75rem', color: '#555'}}>
-                                    <span style={{display:'flex', alignItems:'center', gap:4, fontStyle:'italic'}}>İletişim Gizli <EyeOff size={10}/></span>
-                                </div>
+                            {/* Status text */}
+                            <div style={{ fontSize: '0.75rem', color: getStatusColor(user.status || 'offline') }}>
+                                {user.status === 'online' ? 'Çevrimiçi' : user.status === 'busy' ? 'Meşgul' : 'Uzakta'}
                             </div>
-                            */}
                         </div>
                     ))}
+
+                    {otherColleagues.length === 0 && (
+                        <div style={{ textAlign: 'center', padding: 30, color: '#555', fontSize: '0.85rem', fontStyle: 'italic' }}>
+                            Henüz grup üyesi yok.
+                        </div>
+                    )}
                 </div>
             </div>
         </div>

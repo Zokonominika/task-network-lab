@@ -7,14 +7,14 @@ import type { TaskData } from '../types';
 const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
     // Veri güvenliği: Eğer data veya fullData yoksa boş obje döndür (Crash önleyici)
     const task = data?.fullData || {} as TaskData;
-    
+
     // 1. ZAMANLAYICI
     const [now, setNow] = useState(() => Date.now());
 
     useEffect(() => {
         const interval = setInterval(() => {
             setNow(Date.now());
-        }, 60000); 
+        }, 60000);
         return () => clearInterval(interval);
     }, []);
 
@@ -27,7 +27,7 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
             default: return '#888';
         }
     };
-    
+
     const getPriorityLabel = (p: string) => {
         switch (p) {
             case 'urgent': return 'ACİL';
@@ -47,13 +47,13 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
     // --- SÜRE KONTROLÜ ---
     const isUrgentTime = task.due_date ? (new Date(task.due_date).getTime() - now < 24 * 60 * 60 * 1000) : false;
     const isLate = task.due_date ? (new Date(task.due_date).getTime() < now) : false;
-    
-    const formattedDate = task.due_date 
-        ? new Date(task.due_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) 
+
+    const formattedDate = task.due_date
+        ? new Date(task.due_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
         : 'Tarih Yok';
 
     return (
-        <div 
+        <div
             className={`cyber-node-wrapper ${isUrgentTime && task.status === 'active' ? 'urgent-pulse' : ''}`}
             style={{
                 width: '240px',
@@ -70,7 +70,7 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
             // Hover efektlerini JS ile değil CSS class ile yapmak daha performanslıdır ama şimdilik kalsın
             onMouseEnter={(e) => {
                 // Sadece gölgeyi değiştiriyoruz, scale yapmıyoruz (koordinatları şaşırtmasın diye)
-                e.currentTarget.style.boxShadow = `0 10px 25px -5px ${priorityColor}40`; 
+                e.currentTarget.style.boxShadow = `0 10px 25px -5px ${priorityColor}40`;
                 e.currentTarget.style.borderColor = priorityColor;
             }}
             onMouseLeave={(e) => {
@@ -87,9 +87,9 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
                     <Lock size={14} />
                 </div>
             )}
-            
+
             <div style={{
-                background: 'rgba(255, 255, 255, 0.05)', 
+                background: 'rgba(255, 255, 255, 0.05)',
                 padding: '8px 12px',
                 borderBottom: '1px solid rgba(255,255,255,0.1)',
                 display: 'flex',
@@ -99,7 +99,7 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
                 <div title={task.title} style={{ fontWeight: 'bold', color: '#fff', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '140px' }}>
                     {task.title || 'Başlıksız Görev'}
                 </div>
-                
+
                 <div style={{ fontSize: '0.6rem', fontWeight: 'bold', background: priorityColor, color: 'white', padding: '2px 6px', borderRadius: '4px' }}>
                     {getPriorityLabel(task.priority || 'normal')}
                 </div>
@@ -115,7 +115,7 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
                 {/* Kullanıcılar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
                     {(!task.assignments || task.assignments.length === 0) ? (
-                        <span style={{fontSize:'0.7rem', color:'#666', fontStyle:'italic'}}>Atama yok</span>
+                        <span style={{ fontSize: '0.7rem', color: '#666', fontStyle: 'italic' }}>Atama yok</span>
                     ) : (
                         task.assignments.map((assign, index) => {
                             const displayName = assign.user?.display_name || assign.user?.username || '?';
@@ -140,7 +140,7 @@ const CyberNode = ({ data }: NodeProps<{ fullData: TaskData }>) => {
                     <div style={{
                         width: `${progressPercent}%`,
                         height: '100%',
-                        background: progressPercent === 100 ? '#4CAF50' : priorityColor, 
+                        background: progressPercent === 100 ? '#4CAF50' : priorityColor,
                         transition: 'width 0.3s ease'
                     }} />
                 </div>

@@ -4,7 +4,8 @@ from django.contrib.auth.models import User, Group
 from .models import (
     Device, Task, TaskNode, Tenant, UserProfile, TaskAssignment, 
     TaskDependency, Department, Notification, Comment, PresentationPeriod,
-    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage
+    SurveyQuestion, SurveyResponse, PipelineTemplate, PipelineStage,
+    PipelineQualitativeQuestion, PipelineQualitativeResponse
 )
 
 def approve_users(modeladmin, request, queryset):
@@ -15,7 +16,7 @@ def approve_users(modeladmin, request, queryset):
         if not profile.tenant:
             profile.tenant = Tenant.objects.first()
         profile.save()
-approve_users.short_description = "Seçili kullanıcıları onayla ve pipeline oluştur"
+approve_users.short_description = "Seçili araştırmacıları onayla ve sunum takvimini oluştur"
 
 # ← ADD THIS HERE
 class UserProfileAdmin(admin.ModelAdmin):
@@ -30,7 +31,7 @@ admin.site.unregister(Group)
 class UserProfileInline(admin.StackedInline):
     model = UserProfile
     can_delete = False
-    verbose_name_plural = 'Kurumsal Detaylar'
+    verbose_name_plural = 'Akademik Detaylar'
     fk_name = 'user'
 
 class CustomUserAdmin(BaseUserAdmin):
@@ -61,7 +62,7 @@ class CustomUserAdmin(BaseUserAdmin):
             return ('username', 'first_name', 'last_name', 'date_joined', 'last_login')
         return () # Yeni oluşturuyorsak hepsi açık olsun
 
-    @admin.display(description='Şirket')
+    @admin.display(description='Araştırma Grubu')
     def get_tenant(self, instance):
         # 1. Profil var mı? 2. Şirket (Tenant) var mı?
         if hasattr(instance, 'profile') and instance.profile.tenant:
@@ -128,4 +129,12 @@ class PipelineStageAdmin(admin.ModelAdmin):
     list_display_links = ('title',)
     list_filter = ('template',)
 
+@admin.register(PipelineQualitativeQuestion)
+class PipelineQualitativeQuestionAdmin(admin.ModelAdmin):
+    list_display = ['stage', 'text', 'is_active']
+    list_filter = ['stage', 'is_active']
 
+@admin.register(PipelineQualitativeResponse)
+class PipelineQualitativeResponseAdmin(admin.ModelAdmin):
+    list_display = ['user', 'question', 'created_at']
+    list_filter = ['question__stage']

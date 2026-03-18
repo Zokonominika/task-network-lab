@@ -1,11 +1,11 @@
 export type UserStatus = 'online' | 'busy' | 'away' | 'offline';
 
-export interface UserData { 
-    id: number; 
-    username: string; 
-    first_name: string; 
+export interface UserData {
+    id: number;
+    username: string;
+    first_name: string;
     last_name: string;
-    display_name?: string; 
+    display_name?: string;
     rank?: number;
     department?: string;
     title?: string;
@@ -19,7 +19,7 @@ export interface UserData {
     accent_color?: string;
     background_style?: string;
     privacy_settings?: {
-        [key: string]: boolean | undefined; 
+        [key: string]: boolean | undefined;
         email?: boolean;
         phone?: boolean;
     };
@@ -39,16 +39,19 @@ export interface Assignment { id: number; user: UserData; is_completed: boolean;
 export interface Attachment { id: number; file: string; file_type: 'instruction' | 'delivery'; uploaded_by: UserData; created_at: string; }
 
 export interface TaskData {
-  id: number;
-  title: string;
-  description: string;
-  status: 'active' | 'completed' | 'failed';
-  priority: 'low' | 'normal' | 'urgent';
-  due_date: string | null;
-  created_by: UserData;
-  assignments: Assignment[];
-  attachments: Attachment[];
-  node_data: { id: number; position_x: number; position_y: number; is_pinned?: boolean;} | null;
+    id: number;
+    title: string;
+    description: string;
+    status: 'active' | 'completed' | 'failed';
+    priority: 'low' | 'normal' | 'urgent';
+    due_date: string | null;
+    created_by: UserData;
+    assignments: Assignment[];
+    attachments: Attachment[];
+    node_data: { id: number; position_x: number; position_y: number; is_pinned?: boolean; } | null;
+    parent_task: number | null;
+    subtasks: TaskData[];
+    is_pipeline_task?: boolean;
 }
 
 export interface DependencyData { id: number; source_task: number; target_task: number; }
@@ -74,10 +77,23 @@ export interface CommentData {
 
 // İstatistik verisi için tip
 export interface UserStatsData {
-    totalCreated: number; 
-    totalAssigned: number; 
-    totalCompleted: number; 
-    totalFailed: number; 
-    weeklyData: number[]; 
-    monthlyData: number[]; 
+    totalCreated: number;
+    totalAssigned: number;
+    totalCompleted: number;
+    totalFailed: number;
+    weeklyData: number[];
+    monthlyData: number[];
+}
+
+export interface PipelineStage {
+    id: number;
+    task_id: number;
+    stage_id: number | null;
+    title: string;
+    description: string;
+    status: string;
+    is_completed: boolean;
+    unlocked: boolean;
+    order: number;
+    is_final_stage: boolean;
 }
